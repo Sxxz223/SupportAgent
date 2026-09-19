@@ -1,0 +1,36 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Vite
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Runtime data and generated reports
+data/*.db
+data/*.db-*
+*.sqlite
+*.sqlite3
+evaluation_results.json
+evaluation-results/
+uploads/
+tmp/
+temp/
+*.log
+
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/

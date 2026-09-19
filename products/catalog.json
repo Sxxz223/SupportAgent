@@ -1,0 +1,26 @@
+[
+  {
+    "product_id": "anker-prime-250w",
+    "display_name": "Anker Prime Charger (250W, 6 Ports, GaNPrime)",
+    "model": "A2345",
+    "category": "charger",
+    "rag_namespace": "anker_prime_250w",
+    "aliases": ["Anker Prime 250W", "Prime 250W", "Prime Charger 250W", "Anker Prime Charger 250W", "A2345"]
+  },
+  {
+    "product_id": "anker-nano-70w",
+    "display_name": "Anker Nano Charger (70W, 3 Ports)",
+    "model": "A121A",
+    "category": "charger",
+    "rag_namespace": "anker_nano_70w",
+    "aliases": ["Anker Nano 70W", "Nano 70W", "Nano Charger 70W", "Anker Nano Charger 70W", "A121A"]
+  },
+  {
+    "product_id": "soundcore-liberty-4-nc",
+    "display_name": "soundcore Liberty 4 NC",
+    "model": "A3947",
+    "category": "earbuds",
+    "rag_namespace": "liberty_4_nc",
+    "aliases": ["Liberty 4 NC", "soundcore Liberty 4 NC", "A3947"]
+  }
+]

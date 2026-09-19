@@ -1,0 +1,12 @@
+{
+  "Alice": {
+    "products": [
+      {
+        "product_id": "anker-prime-250w",
+        "ownership_status": "owned",
+        "warranty_status": "active",
+        "warranty_expires_at": "2027-08-01"
+      }
+    ]
+  }
+}
