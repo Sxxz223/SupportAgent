@@ -34,7 +34,6 @@ FastAPI 文档：
 http://127.0.0.1:8000/docs
 ```
 
-如果你是放 GitHub README，我建议就把这段作为 **中文介绍 / Chinese Overview**，英文主 README 放前面，这段放后面即可。
 
 # AI Customer Support Agent
 
