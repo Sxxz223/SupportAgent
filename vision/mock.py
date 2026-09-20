@@ -1,4 +1,4 @@
-from ..schemas.vision import VisionUpdate
+from schemas.vision import VisionUpdate
 
 def analyze_image_mock(image_path: str) -> VisionUpdate:
     """

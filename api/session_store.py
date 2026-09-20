@@ -2,7 +2,7 @@
 from threading import RLock
 from uuid import uuid4
 
-from ..application.session import SupportSession
+from application.session import SupportSession
 
 
 class InMemorySessionStore:

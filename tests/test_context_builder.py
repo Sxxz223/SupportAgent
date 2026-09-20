@@ -6,13 +6,13 @@ import unittest
 import main  # Initialize project/SDK import separation.
 from agents.tool_context import ToolContext
 
-from my_project.application.context import AppContext
-from my_project.application.events import RuntimeEvent
-from my_project.application.session import SupportSession, TurnContext
-from my_project.context.builder import build_model_context
-from my_project.schemas.state import SupportState
-from my_project.schemas.vision import VisionUpdate
-from my_project.tools.support_tools import (
+from application.context import AppContext
+from application.events import RuntimeEvent
+from application.session import SupportSession, TurnContext
+from context.builder import build_model_context
+from schemas.state import SupportState
+from schemas.vision import VisionUpdate
+from tools.support_tools import (
     check_warranty, create_ticket, get_owned_products, verify_customer,
 )
 

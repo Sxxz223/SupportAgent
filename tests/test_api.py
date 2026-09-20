@@ -10,12 +10,12 @@ from uuid import UUID
 import main  # Initialize project/SDK import separation.
 from fastapi.testclient import TestClient
 
-from my_project.api.app import create_app
-from my_project.api.session_store import InMemorySessionStore
-from my_project.application import turn_processor
-from my_project.schemas.state import StateUpdate
-from my_project.schemas.vision import VisionUpdate
-from my_project.workflow.stages import next_stage
+from api.app import create_app
+from api.session_store import InMemorySessionStore
+from application import turn_processor
+from schemas.state import StateUpdate
+from schemas.vision import VisionUpdate
+from workflow.stages import next_stage
 
 
 class FakeTurnProcessor:

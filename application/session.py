@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .events import RuntimeEvent
-from ..trace.models import TurnTrace
-from ..schemas.state import SupportState
-from ..schemas.vision import VisionUpdate
+from trace.models import TurnTrace
+from schemas.state import SupportState
+from schemas.vision import VisionUpdate
 
 
 @dataclass

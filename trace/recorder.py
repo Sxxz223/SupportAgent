@@ -11,7 +11,7 @@ from .models import (
     AgentStepTrace, ErrorTrace, RetrievalChunkTrace, ToolCallTrace, TurnTrace, VisionTrace,
     WorkflowTrace,
 )
-from ..schemas.state import SupportState
+from schemas.state import SupportState
 
 
 STATE_FIELDS = (

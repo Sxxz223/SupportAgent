@@ -8,27 +8,27 @@ import unittest
 from unittest.mock import Mock, patch
 
 import main as entry  # Entry bootstrap separates local agents from the SDK.
-from my_project.application import turn_processor
-from my_project.application.session import SupportSession
-from my_project.application.session import TurnContext
-from my_project.context.builder import build_model_context
+from application import turn_processor
+from application.session import SupportSession
+from application.session import TurnContext
+from context.builder import build_model_context
 from agents import Agent
-from my_project.agents.extractor_agent import create_extractor_agent, extract_state_update
-from my_project.agents.support_agent import create_support_agent
-from my_project.schemas.state import SupportState, StateUpdate
-from my_project.schemas.vision import VisionUpdate
-from my_project.workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
-from my_project.workflow.actions import decide_next_action
-from my_project.vision.qwen import analyze_image_qwen, image_to_data_url
-from my_project.vision.mock import analyze_image_mock
-from my_project.rag.loader import load_knowledge_chunks
-from my_project.rag.retriever import search_knowledge
+from support_agents.extractor_agent import create_extractor_agent, extract_state_update
+from support_agents.support_agent import create_support_agent
+from schemas.state import SupportState, StateUpdate
+from schemas.vision import VisionUpdate
+from workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
+from workflow.actions import decide_next_action
+from vision.qwen import analyze_image_qwen, image_to_data_url
+from vision.mock import analyze_image_mock
+from rag.loader import load_knowledge_chunks
+from rag.retriever import search_knowledge
 
 
 class RegressionTests(unittest.TestCase):
     def extract(self, text, data):
         agent = create_extractor_agent('test-model')
-        with patch('my_project.agents.extractor_agent.Runner.run_sync', return_value=SimpleNamespace(final_output=json.dumps(data))) as run:
+        with patch('support_agents.extractor_agent.Runner.run_sync', return_value=SimpleNamespace(final_output=json.dumps(data))) as run:
             update = extract_state_update(agent, text)
             run.assert_called_once_with(agent, text)
         state = SupportState()
@@ -130,7 +130,7 @@ class RegressionTests(unittest.TestCase):
         ]
         encoder = Mock()
         encoder.encode.side_effect = [[1., 0.], [0., 1.], [1., 0.]]
-        with patch('my_project.rag.retriever.load_knowledge_chunks', return_value=chunks):
+        with patch('rag.retriever.load_knowledge_chunks', return_value=chunks):
             result = search_knowledge('query', encoder, top_k=1, product_id='anker-prime-250w')
         self.assertEqual(result, '[Score: 1.000]\n[Source: b.md]\nB')
         self.assertTrue(any('## Single-port output' in c['text'] for c in load_knowledge_chunks()))

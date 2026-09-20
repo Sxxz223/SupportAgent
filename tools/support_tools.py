@@ -4,11 +4,11 @@ import json
 from agents.decorators import tool
 from agents.tool_context import ToolContext
 
-from ..application.context import AppContext
-from ..schemas.state import SupportState
-from ..services.customer_service import CustomerService, get_customer_service
-from ..services.ticket_service import TicketService, get_ticket_service
-from ..trace.recorder import trace_tool_call
+from application.context import AppContext
+from schemas.state import SupportState
+from services.customer_service import CustomerService, get_customer_service
+from services.ticket_service import TicketService, get_ticket_service
+from trace.recorder import trace_tool_call
 
 
 def verify_identity(

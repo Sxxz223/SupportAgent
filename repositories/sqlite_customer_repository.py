@@ -6,7 +6,7 @@ import sqlite3
 from threading import RLock
 from uuid import uuid4
 
-from ..products.catalog import get_product
+from products.catalog import get_product
 from .customer_repository import CustomerRecord, OrderRecord, ProductRecord
 
 

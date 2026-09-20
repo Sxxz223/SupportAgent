@@ -3,8 +3,8 @@ from dataclasses import asdict, dataclass
 from functools import lru_cache
 from typing import Any
 
-from ..repositories.demo_ticket_repository import DemoTicketRepository
-from ..repositories.ticket_repository import SupportTicketRepository
+from repositories.demo_ticket_repository import DemoTicketRepository
+from repositories.ticket_repository import SupportTicketRepository
 
 
 @dataclass(frozen=True)

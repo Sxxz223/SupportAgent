@@ -2,8 +2,8 @@
 from dataclasses import dataclass, field
 
 from .session import SupportSession
-from ..services.customer_service import CustomerService, get_customer_service
-from ..services.ticket_service import TicketService, get_ticket_service
+from services.customer_service import CustomerService, get_customer_service
+from services.ticket_service import TicketService, get_ticket_service
 
 
 @dataclass(frozen=True)

@@ -10,15 +10,15 @@ from unittest.mock import patch
 import main  # Initialize project/SDK import separation.
 from agents.tool_context import ToolContext
 
-from my_project.agents.support_agent import create_support_agent
-from my_project.application import turn_processor as processor
-from my_project.application.context import AppContext
-from my_project.application.session import SupportSession, TurnContext
-from my_project.context.builder import build_model_context
-from my_project.rag.retriever import search_knowledge
-from my_project.repositories.demo_customer_repository import DemoCustomerRepository
-from my_project.schemas.state import StateUpdate, SupportState
-from my_project.tools.support_tools import get_owned_products, verify_customer
+from support_agents.support_agent import create_support_agent
+from application import turn_processor as processor
+from application.context import AppContext
+from application.session import SupportSession, TurnContext
+from context.builder import build_model_context
+from rag.retriever import search_knowledge
+from repositories.demo_customer_repository import DemoCustomerRepository
+from schemas.state import StateUpdate, SupportState
+from tools.support_tools import get_owned_products, verify_customer
 
 
 def invoke_tool(tool, session, arguments):

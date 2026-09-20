@@ -1,23 +1,12 @@
 """FastAPI transport for the existing support application."""
 from pathlib import Path
-import sys
 from collections.abc import Callable
 from tempfile import NamedTemporaryFile
-
-# Support the requested `uvicorn api.app:app` command without allowing the
-# project's `agents/` package to shadow the installed Agents SDK.
-project_dir = Path(__file__).resolve().parents[1]
-sys.path[:] = [
-    path for path in sys.path
-    if Path(path or ".").resolve() != project_dir
-]
-if str(project_dir.parent) not in sys.path:
-    sys.path.insert(0, str(project_dir.parent))
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from my_project.api.schemas import (
+from .schemas import (
     ChatRequest,
     ChatResponse,
     CustomerCreateRequest,
@@ -31,18 +20,18 @@ from my_project.api.schemas import (
     ProductResponse,
     SessionResponse,
 )
-from my_project.api.session_store import InMemorySessionStore
-from my_project.application.session import SupportSession
-from my_project.application.turn_processor import process_turn
-from my_project.evaluation.report_reader import (
+from .session_store import InMemorySessionStore
+from application.session import SupportSession
+from application.turn_processor import process_turn
+from evaluation.report_reader import (
     DEFAULT_REPORT_PATH,
     EvaluationReportNotFoundError,
     InvalidEvaluationReportError,
     get_report_summary,
     load_latest_report,
 )
-from my_project.products.catalog import get_product, list_products
-from my_project.services.customer_service import (
+from products.catalog import get_product, list_products
+from services.customer_service import (
     CustomerConflictError,
     CustomerNotFoundError,
     CustomerService,

@@ -5,7 +5,7 @@ import unittest
 
 import main  # Initialize project/SDK import separation.
 
-from my_project.evaluation import (
+from evaluation import (
     EVALUATION_CASES,
     EvaluationCase,
     EvaluationExpectations,
@@ -14,7 +14,7 @@ from my_project.evaluation import (
     get_case,
     resolve_image_path,
 )
-from my_project.schemas.state import SupportState
+from schemas.state import SupportState
 
 
 class EvaluationDatasetTests(unittest.TestCase):

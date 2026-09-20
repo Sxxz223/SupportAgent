@@ -1,23 +1,10 @@
 """Command-line entry point for live Agent evaluation."""
-from pathlib import Path
 import argparse
-import sys
 
-
-# Support `python -m evaluation.cli` from the project directory without
-# allowing the local agents package to shadow the installed Agents SDK.
-project_dir = Path(__file__).resolve().parents[1]
-sys.path[:] = [
-    path for path in sys.path
-    if Path(path or ".").resolve() != project_dir
-]
-if str(project_dir.parent) not in sys.path:
-    sys.path.insert(0, str(project_dir.parent))
-
-from my_project.evaluation.cases import EVALUATION_CASES
-from my_project.evaluation.models import VALID_CATEGORIES
-from my_project.evaluation.report import format_suite_report, write_json_report
-from my_project.evaluation.runner import EvaluationRunner
+from .cases import EVALUATION_CASES
+from .models import VALID_CATEGORIES
+from .report import format_suite_report, write_json_report
+from .runner import EvaluationRunner
 
 
 def build_parser() -> argparse.ArgumentParser:

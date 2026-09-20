@@ -10,18 +10,18 @@ from unittest.mock import patch
 import main  # Initialize package import handling before importing the SDK.
 from agents.tool_context import ToolContext
 
-from my_project.application.context import AppContext
-from my_project.application.session import SupportSession
-from my_project.application import turn_processor as processor
-from my_project.schemas.state import StateUpdate
-from my_project.tools.support_tools import (
+from application.context import AppContext
+from application.session import SupportSession
+from application import turn_processor as processor
+from schemas.state import StateUpdate
+from tools.support_tools import (
     check_warranty,
     create_ticket,
     get_owned_products,
     open_ticket,
     verify_customer,
 )
-from my_project.workflow.stages import get_allowed_tools
+from workflow.stages import get_allowed_tools
 
 
 def invoke(tool, session, arguments):

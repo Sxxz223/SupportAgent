@@ -8,8 +8,8 @@ from typing import Any
 from .cases import resolve_image_path
 from .evaluators import evaluate_case
 from .models import CaseResult, EvaluationCase, SuiteResult
-from ..application.session import SupportSession
-from ..application.turn_processor import process_turn
+from application.session import SupportSession
+from application.turn_processor import process_turn
 
 
 ProcessTurn = Callable[..., str]

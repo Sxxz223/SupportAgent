@@ -199,7 +199,7 @@ main.py          Multi-turn command-line demo
 
 ```bash
 git clone <your-repository-url>
-cd my_project
+cd SupportAgent
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

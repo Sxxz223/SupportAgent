@@ -6,14 +6,14 @@ import unittest
 
 import main  # Initialize package/SDK import separation.
 
-from my_project.application.session import SupportSession
-from my_project.application.session import TurnContext
-from my_project.context.builder import build_model_context
-from my_project.repositories.sqlite_customer_repository import SQLiteCustomerRepository
-from my_project.schemas.state import StateUpdate, SupportState
-from my_project.services.customer_service import CustomerService
-from my_project.tools.support_tools import load_owned_products, verify_identity
-from my_project.workflow.stages import apply_update, get_allowed_tools, next_stage
+from application.session import SupportSession
+from application.session import TurnContext
+from context.builder import build_model_context
+from repositories.sqlite_customer_repository import SQLiteCustomerRepository
+from schemas.state import StateUpdate, SupportState
+from services.customer_service import CustomerService
+from tools.support_tools import load_owned_products, verify_identity
+from workflow.stages import apply_update, get_allowed_tools, next_stage
 
 
 class IdentityVerificationTests(unittest.TestCase):

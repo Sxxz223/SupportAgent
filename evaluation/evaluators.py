@@ -8,7 +8,7 @@ from .models import (
     EvaluationCase,
     FieldExpectation,
 )
-from ..trace.models import TurnTrace
+from trace.models import TurnTrace
 
 
 def _pass(name: str, layer: str, expected: Any, actual: Any, message: str = "") -> CheckResult:

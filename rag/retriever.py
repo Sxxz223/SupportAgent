@@ -1,6 +1,6 @@
 import re
 
-from ..products.catalog import get_product, resolve_product
+from products.catalog import get_product, resolve_product
 from .loader import load_knowledge_chunks
 from .embeddings import cosine_similarity
 

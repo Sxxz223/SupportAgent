@@ -5,9 +5,9 @@ from unittest.mock import Mock
 
 import main  # Initialize project/SDK import separation.
 
-from my_project.products.catalog import list_products, resolve_product
-from my_project.rag.loader import KNOWLEDGE_DIR, load_knowledge_chunks
-from my_project.rag.retriever import search_knowledge
+from products.catalog import list_products, resolve_product
+from rag.loader import KNOWLEDGE_DIR, load_knowledge_chunks
+from rag.retriever import search_knowledge
 
 
 class ConstantEncoder:

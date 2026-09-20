@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-from ..products.catalog import list_products
+from products.catalog import list_products
 
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[1] / "knowledge"

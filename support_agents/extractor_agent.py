@@ -1,6 +1,6 @@
 import json
 from agents import Agent, Runner
-from ..schemas.state import StateUpdate
+from schemas.state import StateUpdate
 
 def create_extractor_agent(deepseek_model):
     extractor_agent = Agent(

@@ -2,9 +2,9 @@
 from collections.abc import Sequence
 from typing import Any
 
-from ..application.events import RuntimeEvent
-from ..application.session import TurnContext
-from ..schemas.state import SupportState
+from application.events import RuntimeEvent
+from application.session import TurnContext
+from schemas.state import SupportState
 
 
 IMPORTANT_ACTION_EVENTS = {

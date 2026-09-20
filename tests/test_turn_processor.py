@@ -10,11 +10,11 @@ from unittest.mock import Mock, patch
 
 import main as entry
 from agents.tool_context import ToolContext
-from my_project.application import turn_processor as processor
-from my_project.application.context import AppContext
-from my_project.application.session import SupportSession
-from my_project.schemas.state import StateUpdate
-from my_project.schemas.vision import VisionUpdate
+from application import turn_processor as processor
+from application.context import AppContext
+from application.session import SupportSession
+from schemas.state import StateUpdate
+from schemas.vision import VisionUpdate
 
 
 class SessionTurnTests(unittest.TestCase):
@@ -29,12 +29,12 @@ class SessionTurnTests(unittest.TestCase):
             calls.append(names)
             contexts.append(agent.instructions)
             if names == ["verify_customer"]:
-                from my_project.tools.support_tools import verify_customer
+                from tools.support_tools import verify_customer
                 arguments = {"phone_last4": "3721"}
                 tool_context = ToolContext(context=AppContext(session=context.session), tool_name=verify_customer.name, tool_call_id="verify", tool_arguments=json.dumps(arguments))
                 asyncio.run(verify_customer.on_invoke_tool(tool_context, json.dumps(arguments)))
             elif names == ["get_owned_products"]:
-                from my_project.tools.support_tools import get_owned_products
+                from tools.support_tools import get_owned_products
                 arguments = {"customer_id": context.session.state.customer_id}
                 tool_context = ToolContext(context=AppContext(session=context.session), tool_name=get_owned_products.name, tool_call_id="products", tool_arguments=json.dumps(arguments))
                 asyncio.run(get_owned_products.on_invoke_tool(tool_context, json.dumps(arguments)))
@@ -278,8 +278,8 @@ class SessionTurnTests(unittest.TestCase):
 
 class ResourceLifecycleTests(unittest.TestCase):
     def test_provider_and_embedding_factories_are_singletons(self):
-        from my_project.providers import deepseek, qwen
-        from my_project.rag import embeddings
+        from providers import deepseek, qwen
+        from rag import embeddings
 
         deepseek.create_deepseek_model.cache_clear()
         qwen.create_qwen_client.cache_clear()

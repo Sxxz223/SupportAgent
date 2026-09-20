@@ -1,4 +1,4 @@
-from ..schemas.state import SupportState
+from schemas.state import SupportState
 
 def can_create_ticket(state: SupportState) -> bool:
     """

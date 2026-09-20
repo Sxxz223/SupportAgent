@@ -5,17 +5,17 @@ from agents import Runner
 
 from .context import AppContext
 from .session import SupportSession, TurnContext
-from ..agents.extractor_agent import create_extractor_agent, extract_state_update
-from ..agents.support_agent import create_support_agent
-from ..context.builder import build_model_context
-from ..providers.deepseek import create_deepseek_model
-from ..providers.qwen import create_qwen_client
-from ..rag.embeddings import create_embedding_model
-from ..rag.retriever import search_knowledge
-from ..trace.recorder import TraceRecorder, snapshot_state
-from ..vision.qwen import analyze_image_qwen
-from ..workflow.actions import decide_next_action
-from ..workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
+from support_agents.extractor_agent import create_extractor_agent, extract_state_update
+from support_agents.support_agent import create_support_agent
+from context.builder import build_model_context
+from providers.deepseek import create_deepseek_model
+from providers.qwen import create_qwen_client
+from rag.embeddings import create_embedding_model
+from rag.retriever import search_knowledge
+from trace.recorder import TraceRecorder, snapshot_state
+from vision.qwen import analyze_image_qwen
+from workflow.actions import decide_next_action
+from workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
 
 MAX_AGENT_STEPS = 5
 

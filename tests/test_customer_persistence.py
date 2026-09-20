@@ -9,15 +9,15 @@ import main  # Initialize project/SDK import separation.
 from agents.tool_context import ToolContext
 from fastapi.testclient import TestClient
 
-from my_project.api.app import create_app
-from my_project.api.session_store import InMemorySessionStore
-from my_project.application.context import AppContext
-from my_project.application.session import SupportSession
-from my_project.repositories.sqlite_customer_repository import SQLiteCustomerRepository
-from my_project.services.customer_service import (
+from api.app import create_app
+from api.session_store import InMemorySessionStore
+from application.context import AppContext
+from application.session import SupportSession
+from repositories.sqlite_customer_repository import SQLiteCustomerRepository
+from services.customer_service import (
     CustomerConflictError, CustomerService, CustomerValidationError,
 )
-from my_project.tools.support_tools import get_owned_products, verify_customer
+from tools.support_tools import get_owned_products, verify_customer
 
 
 class CustomerPersistenceTests(unittest.TestCase):

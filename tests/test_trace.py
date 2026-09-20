@@ -11,13 +11,13 @@ from unittest.mock import patch
 import main as entry
 from agents.tool_context import ToolContext
 
-from my_project.application import turn_processor as processor
-from my_project.application.context import AppContext
-from my_project.application.session import SupportSession
-from my_project.schemas.state import StateUpdate
-from my_project.schemas.vision import VisionUpdate
-from my_project.tools.support_tools import check_warranty, create_ticket, verify_customer
-from my_project.trace.recorder import format_trace
+from application import turn_processor as processor
+from application.context import AppContext
+from application.session import SupportSession
+from schemas.state import StateUpdate
+from schemas.vision import VisionUpdate
+from tools.support_tools import check_warranty, create_ticket, verify_customer
+from trace.recorder import format_trace
 
 
 RAG_RESULT = """[Score: 0.820]

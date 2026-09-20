@@ -2,7 +2,7 @@ import base64
 import json
 import mimetypes
 from pathlib import Path
-from ..schemas.vision import VisionUpdate
+from schemas.vision import VisionUpdate
 
 def image_to_data_url(image_path: str) -> str:
     path = Path(image_path)

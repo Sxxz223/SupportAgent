@@ -5,8 +5,7 @@ This is a behavior-preserving modularization of the original customer-support de
 ## Running and imports
 
 - Use `.venv/bin/python main.py` from this directory, or an absolute path to `main.py` from another directory.
-- Package execution also works from the parent directory: `my_project/.venv/bin/python -m my_project.main`.
-- Use project-relative imports inside application modules. The local `my_project.agents` package is NOT the third-party `agents` SDK.
+- Run from the repository root; imports must not depend on the repository directory name. Local Agent assembly lives in `support_agents/` to avoid shadowing the third-party `agents` SDK.
 - Do not add the project directory to `PYTHONPATH` for package execution; it shadows the SDK. The script entry point removes this conflict from its import search path.
 - Configure `DEEPSEEK_API_KEY` and `DASHSCOPE_API_KEY` in the environment. Never commit credentials.
 - Install dependencies from `requirements.txt`. The embedding model may need downloading on first use.

@@ -6,11 +6,11 @@ import re
 import sqlite3
 from typing import Any
 
-from ..products.catalog import get_product
-from ..repositories.customer_repository import (
+from products.catalog import get_product
+from repositories.customer_repository import (
     CustomerRecord, CustomerRepository, OrderRecord, ProductRecord,
 )
-from ..repositories.sqlite_customer_repository import (
+from repositories.sqlite_customer_repository import (
     SQLiteCustomerRepository, VALID_ORDER_STATUSES,
 )
 

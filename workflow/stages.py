@@ -1,7 +1,7 @@
-from ..schemas.state import SupportState, StateUpdate
-from ..schemas.vision import VisionUpdate
-from ..tools.support_tools import verify_customer, get_owned_products, check_warranty, create_ticket
-from ..products.catalog import resolve_product
+from schemas.state import SupportState, StateUpdate
+from schemas.vision import VisionUpdate
+from tools.support_tools import verify_customer, get_owned_products, check_warranty, create_ticket
+from products.catalog import resolve_product
 
 def next_stage(state: SupportState) -> str:
     """

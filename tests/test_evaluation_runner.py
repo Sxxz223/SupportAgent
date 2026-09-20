@@ -7,19 +7,19 @@ import unittest
 
 import main  # Initialize project/SDK import separation.
 
-from my_project.application.session import SupportSession
-from my_project.evaluation import get_case
-from my_project.evaluation.evaluators import evaluate_case
-from my_project.evaluation.models import (
+from application.session import SupportSession
+from evaluation import get_case
+from evaluation.evaluators import evaluate_case
+from evaluation.models import (
     AnswerRequirements,
     EvaluationCase,
     EvaluationExpectations,
     EvaluationTurn,
     FieldExpectation,
 )
-from my_project.evaluation.report import format_suite_report, suite_to_json, write_json_report
-from my_project.evaluation.runner import EvaluationRunner
-from my_project.trace.models import (
+from evaluation.report import format_suite_report, suite_to_json, write_json_report
+from evaluation.runner import EvaluationRunner
+from trace.models import (
     RetrievalChunkTrace, ToolCallTrace, TurnTrace, VisionTrace, WorkflowTrace,
 )
 

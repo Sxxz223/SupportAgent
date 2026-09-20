@@ -1,17 +1,6 @@
 """Simple multi-turn CLI for the customer support demo."""
-from pathlib import Path
-
-# Distinguish this project's agents package from the third-party Agents SDK.
-# Also support `python /absolute/path/to/my_project/main.py` from any directory.
-if not __package__:
-    import sys
-    project_dir = Path(__file__).resolve().parent
-    sys.path[:] = [p for p in sys.path if Path(p or ".").resolve() != project_dir]
-    sys.path.insert(0, str(project_dir.parent))
-    __package__ = project_dir.name
-
-from .application.turn_processor import process_turn
-from .application.session import SupportSession
+from application.turn_processor import process_turn
+from application.session import SupportSession
 
 
 def main():
