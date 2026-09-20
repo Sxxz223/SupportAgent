@@ -54,8 +54,9 @@ npm run dev
 http://localhost:5173
 ```
 #### 7. Evaluation查看
+复制到终端：
 ```text
-.venv/bin/python -m evaluation.cli --all \ #复制在终端输入
+.venv/bin/python -m evaluation.cli --all \
   --json evaluation_results.json
 ```
 前往
