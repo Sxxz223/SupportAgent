@@ -18,6 +18,7 @@ button, textarea { font: inherit; }
 .resolve-intro p, .resolve-eyebrow { margin: 0 0 8px; color: #1265e8; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
 .resolve-intro h1 { margin: 0; font-size: clamp(25px, 3vw, 36px); line-height: 1.25; letter-spacing: -.03em; }
 .resolve-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 20px; align-items: start; }
+.resolve-layout.is-conversation-only { grid-template-columns: minmax(0, 820px); justify-content: center; }
 .resolve-progress, .resolve-card { background: #fff; border: 1px solid #e5eaf1; border-radius: 18px; box-shadow: 0 12px 35px rgba(45,64,92,.06); }
 .resolve-progress { padding: 22px 20px; }
 .resolve-progress-title { display: flex; align-items: center; justify-content: space-between; }
@@ -47,6 +48,9 @@ button, textarea { font: inherit; }
 .resolve-reply { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; padding: 16px; background: #f7f9fc; border-radius: 13px; }
 .resolve-reply > span { width: 30px; height: 30px; border-radius: 9px; font-size: 10px; }
 .resolve-reply p { margin: 3px 0 0; color: #344157; line-height: 1.7; white-space: pre-wrap; }
+.resolve-user-message { display: flex; justify-content: flex-end; margin: 18px 0 10px; }
+.resolve-user-message p { max-width: 78%; margin: 0; padding: 11px 15px; color: #fff; background: #1265e8; border-radius: 14px 14px 4px 14px; line-height: 1.6; }
+.resolve-image-prompt { margin: 0 0 10px; color: #46556d; font-size: 13px; }
 .resolve-choices { display: grid; gap: 9px; margin-top: 20px; }
 .resolve-choices button { position: relative; display: grid; width: 100%; padding: 14px 42px 14px 16px; text-align: left; color: #26344b; background: #fff; border: 1px solid #dfe5ed; border-radius: 11px; cursor: pointer; transition: .18s ease; }
 .resolve-choices button:hover { border-color: #7aa9ef; background: #f7faff; transform: translateY(-1px); }

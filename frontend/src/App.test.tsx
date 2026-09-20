@@ -22,16 +22,20 @@ describe("customer service page", () => {
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
   });
 
-  it("shows only the customer flow and follows backend stages", async () => {
-    sendMessageMock.mockResolvedValue({ reply: "请提供订单信息", stage: "verify_identity" });
+  it("starts without a path and renders only the path returned by the agent", async () => {
+    sendMessageMock.mockResolvedValue({ reply: "先确认一下具体表现", stage: "diagnose", plan: { steps: [
+      { id: "understand", title: "确认故障现象", status: "current" },
+      { id: "test", title: "测试连接状态", status: "pending" },
+    ], progress: 20 }, interaction: { type: "choice", options: [{ label: "完全没有反应" }, { label: "会短暂连接" }] } });
     const user = userEvent.setup();
     render(<App />);
     await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
     expect(screen.queryByText(/密钥|连接方式|后端同步|TEAM PREVIEW/)).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("输入消息"), "我是 Alice{enter}");
-    expect(await screen.findByText("请提供订单信息")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "核验购买信息。" })).toBeInTheDocument();
-    expect(screen.getByText("核验购买身份").closest("li")).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByLabelText("解决进度")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("输入消息"), "充电宝突然不能给电脑充电了{enter}");
+    expect(await screen.findByText("先确认一下具体表现")).toBeInTheDocument();
+    expect(screen.getAllByText("确认故障现象").find((node) => node.closest("li"))?.closest("li")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("button", { name: /完全没有反应/ })).toBeInTheDocument();
   });
 
   it("keeps failed content available for retry", async () => {
@@ -46,10 +50,13 @@ describe("customer service page", () => {
   });
 
   it("validates and sends a customer photo", async () => {
+    sendMessageMock.mockResolvedValue({ reply: "请拍一下接口位置", stage: "diagnose", interaction: { type: "image", image_prompt: "请把接口和旁边的标识一起拍进去" } });
     sendMultimodalMessageMock.mockResolvedValue({ reply: "图片已分析", stage: "diagnose" });
     const user = userEvent.setup();
     render(<App />);
     await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
+    await user.type(screen.getByLabelText("输入消息"), "我不知道插的是哪个口{enter}");
+    await screen.findByText("请拍一下接口位置");
     const invalid = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "large.png", { type: "image/png" });
     await user.upload(screen.getByLabelText("上传图片"), invalid);
     expect(screen.getByRole("alert")).toHaveTextContent("不超过 10 MB");
@@ -65,6 +72,7 @@ describe("customer service page", () => {
     render(<App />);
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(screen.queryByText("演示体验")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("输入消息"), "我的充电宝突然不能给电脑充电了{enter}");
     await user.click(screen.getByRole("button", { name: /Anker Prime Charger/ }));
     await user.click(await screen.findByRole("button", { name: /完全没有充电反应/ }));
     await user.click(await screen.findByRole("button", { name: /更换后恢复正常/ }));

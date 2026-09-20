@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSession, sendMessage, sendMultimodalMessage } from "./api/client";
 import { ChatInput } from "./components/ChatInput";
 import { advanceDemo, demoView, initialDemo } from "./resolve/demo";
-import { liveView } from "./resolve/model";
+import type { ChatResponse } from "./types/chat";
 import "./resolve/workspace.css";
 
 type PendingMessage = { message: string; image: File | null };
@@ -11,19 +11,27 @@ type PendingMessage = { message: string; image: File | null };
 export default function App() {
   const isDemo = window.location.pathname === "/demo";
   const [sessionId, setSessionId] = useState("");
-  const [stage, setStage] = useState("identify_user");
-  const [reply, setReply] = useState("你好，我是 Anker 智能服务助手。我们一步一步来解决问题。");
+  const [reply, setReply] = useState("你可以直接说发生了什么，不用准备订单信息，也不用使用专业术语。");
+  const [lastUserMessage, setLastUserMessage] = useState("");
+  const [agentResult, setAgentResult] = useState<ChatResponse | null>(null);
+  const [started, setStarted] = useState(false);
   const [demo, setDemo] = useState(initialDemo);
-  const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(!isDemo);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<PendingMessage | null>(null);
   const requestVersion = useRef(0);
 
-  const view = useMemo(
-    () => (isDemo ? demoView(demo) : liveView(stage, confirmed)),
-    [isDemo, demo, stage, confirmed],
-  );
+  const demoResult = useMemo(() => demoView(demo), [demo]);
+  const steps = isDemo ? (started ? demoResult.steps : []) : (agentResult?.plan?.steps ?? []);
+  const progress = isDemo ? (started ? demoResult.progress : null) : (agentResult?.plan?.progress ?? null);
+  const complete = isDemo ? demoResult.complete : progress === 100;
+  const choices = isDemo ? (started ? demoResult.choices : []) : (agentResult?.interaction?.options ?? []).map((option, index) => ({
+    id: option.id ?? `option-${index}`, label: option.label, detail: option.detail, message: option.value ?? option.label,
+  }));
+  const title = !started ? "先告诉我，你遇到了什么问题" : isDemo ? demoResult.title : steps.find((step) => step.status === "current")?.title ?? "我们继续一起处理";
+  const description = !started ? "一句话、几句话都可以。已经说清楚的信息，我不会重复询问。" : isDemo ? demoResult.description : "我会根据你提供的新情况，随时调整接下来的处理步骤。";
+  const note = isDemo ? demoResult.note : agentResult?.plan?.revision_note;
+  const allowImages = !isDemo && agentResult?.interaction?.type === "image";
 
   const connect = useCallback(async () => {
     const version = ++requestVersion.current;
@@ -54,8 +62,8 @@ export default function App() {
         ? await sendMultimodalMessage(sessionId, message, image)
         : await sendMessage(sessionId, message);
       setReply(response.reply);
-      setStage(response.stage);
-      if (response.stage === "resolved" && /确认.*解决|问题.*解决/.test(message)) setConfirmed(true);
+      setAgentResult(response);
+      setStarted(true);
       setPending(null);
     } catch {
       setError("发送失败，内容已保留。你可以直接重试。");
@@ -65,14 +73,19 @@ export default function App() {
   }
 
   function handleSend(message: string, image: File | null) {
+    setLastUserMessage(message || "已上传图片");
     if (isDemo) {
-      if (message.trim()) setReply("已收到你的补充。请选择最接近的结果，我们会继续调整解决步骤。");
+      if (!started) {
+        setStarted(true);
+        setReply("明白了。我先确认产品和现象，再根据你的反馈生成后续步骤。");
+      } else if (message.trim()) setReply("已收到你的补充。我会根据新情况调整接下来的步骤。");
       return;
     }
     void submitLive(message, image);
   }
 
-  function choose(choice: (typeof view.choices)[number]) {
+  function choose(choice: (typeof choices)[number]) {
+    setLastUserMessage(choice.label);
     if (isDemo) {
       setDemo((current) => advanceDemo(current, choice.id));
       return;
@@ -82,10 +95,11 @@ export default function App() {
 
   function reset() {
     requestVersion.current += 1;
-    setStage("identify_user");
-    setReply("你好，我是 Anker 智能服务助手。我们一步一步来解决问题。");
+    setReply("你可以直接说发生了什么，不用准备订单信息，也不用使用专业术语。");
+    setLastUserMessage("");
+    setAgentResult(null);
+    setStarted(false);
     setDemo(initialDemo());
-    setConfirmed(false);
     setError("");
     setPending(null);
     setSessionId("");
@@ -111,22 +125,22 @@ export default function App() {
           <h1>你好，需要我帮你解决什么问题？</h1>
         </section>
 
-        <div className="resolve-layout">
-          <aside className="resolve-progress" aria-label="解决进度">
+        <div className={`resolve-layout ${steps.length === 0 ? "is-conversation-only" : ""}`}>
+          {steps.length > 0 && <aside className="resolve-progress" aria-label="解决进度">
             <div className="resolve-progress-title">
               <h2>解决进度</h2>
-              {view.progress !== null && <span>{view.progress}%</span>}
+              {progress !== null && <span>{progress}%</span>}
             </div>
-            {view.progress !== null && <div className="resolve-progress-bar"><i style={{ width: `${view.progress}%` }} /></div>}
+            {progress !== null && <div className="resolve-progress-bar"><i style={{ width: `${progress}%` }} /></div>}
             <ol>
-              {view.steps.map((step) => (
+              {steps.map((step) => (
                 <li key={step.id} className={`resolve-step is-${step.status}`} aria-current={step.status === "current" ? "step" : undefined}>
                   <span>{step.status === "done" ? "✓" : ""}</span>
                   <p>{step.title}</p>
                 </li>
               ))}
             </ol>
-          </aside>
+          </aside>}
 
           <section className="resolve-card" aria-live="polite">
             <div className="resolve-assistant">
@@ -135,19 +149,20 @@ export default function App() {
             </div>
 
             <div className="resolve-content">
-              {view.note && <div className="resolve-note">路径已更新 · {view.note}</div>}
-              <p className="resolve-eyebrow">{view.eyebrow}</p>
-              <h2>{view.title}</h2>
-              <p className="resolve-description">{view.description}</p>
+              {note && <div className="resolve-note">接下来的步骤已调整 · {note}</div>}
+              <p className="resolve-eyebrow">{started ? "当前要做的事" : "从你的问题开始"}</p>
+              <h2>{title}</h2>
+              <p className="resolve-description">{description}</p>
 
-              {view.progress !== null && view.progress >= 99 && (
-                <div className={`resolve-score ${view.complete ? "is-complete" : ""}`}>
-                  <strong>{view.progress}</strong><span>%</span>
-                  <p>{view.complete ? "问题已解决" : "等待你的最终确认"}</p>
+              {progress !== null && progress >= 99 && (
+                <div className={`resolve-score ${complete ? "is-complete" : ""}`}>
+                  <strong>{progress}</strong><span>%</span>
+                  <p>{complete ? "问题已解决" : "等待你的最终确认"}</p>
                 </div>
               )}
 
-              {!view.complete && reply && (
+              {lastUserMessage && <div className="resolve-user-message"><p>{lastUserMessage}</p></div>}
+              {!complete && reply && (
                 <div className="resolve-reply"><span>AI</span><p>{reply}</p></div>
               )}
 
@@ -158,9 +173,9 @@ export default function App() {
                 </div>
               )}
 
-              {!view.complete && view.choices.length > 0 && (
+              {!complete && choices.length > 0 && (
                 <div className="resolve-choices">
-                  {view.choices.map((choice) => (
+                  {choices.map((choice) => (
                     <button key={choice.id} type="button" onClick={() => choose(choice)} disabled={busy}>
                       <span>{choice.label}</span>{choice.detail && <small>{choice.detail}</small>}
                       <i>›</i>
@@ -169,12 +184,13 @@ export default function App() {
                 </div>
               )}
 
-              {view.complete ? (
+              {complete ? (
                 <button className="resolve-primary" type="button" onClick={reset}>解决下一个问题</button>
               ) : (
                 <div className="resolve-composer">
-                  <ChatInput disabled={busy || (!isDemo && !sessionId)} onSend={handleSend} allowImages={!isDemo} />
-                  <p>你可以选择上方选项，也可以直接描述情况</p>
+                  {allowImages && agentResult?.interaction?.image_prompt && <p className="resolve-image-prompt">{agentResult.interaction.image_prompt}</p>}
+                  <ChatInput disabled={busy || (!isDemo && !sessionId)} onSend={handleSend} allowImages={allowImages} />
+                  <p>{choices.length ? "可以选择上方选项，也可以补充实际情况" : "直接描述情况即可"}</p>
                 </div>
               )}
             </div>

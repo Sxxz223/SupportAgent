@@ -14,4 +14,15 @@ export type SessionResponse = {
 export type ChatResponse = {
   reply: string;
   stage: string;
+  interaction?: {
+    type: "choice" | "image" | "text" | "confirm" | "none";
+    options?: Array<{ id?: string; label: string; value?: string; detail?: string }>;
+    image_prompt?: string;
+  };
+  plan?: {
+    steps: Array<{ id: string; title: string; status: "done" | "current" | "pending" }>;
+    progress?: number;
+    revision_note?: string;
+  };
+  facts_update?: Record<string, string>;
 };
