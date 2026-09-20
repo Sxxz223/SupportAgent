@@ -31,7 +31,8 @@ describe("customer service page", () => {
     render(<App />);
     await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
     expect(screen.queryByText(/密钥|连接方式|后端同步|TEAM PREVIEW/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("解决进度")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("解决路径")).toBeInTheDocument();
+    expect(screen.getByLabelText("路径将在分析后显示")).toBeInTheDocument();
     await user.type(screen.getByLabelText("输入消息"), "充电宝突然不能给电脑充电了{enter}");
     expect(await screen.findByText("先确认一下具体表现")).toBeInTheDocument();
     expect(screen.getAllByText("确认故障现象").find((node) => node.closest("li"))?.closest("li")).toHaveAttribute("aria-current", "step");

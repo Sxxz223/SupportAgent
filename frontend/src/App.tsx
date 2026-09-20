@@ -11,7 +11,7 @@ type PendingMessage = { message: string; image: File | null };
 export default function App() {
   const isDemo = window.location.pathname === "/demo";
   const [sessionId, setSessionId] = useState("");
-  const [reply, setReply] = useState("你可以直接说发生了什么，不用准备订单信息，也不用使用专业术语。");
+  const [reply, setReply] = useState("你好，我是 Anker 智能服务助手。有什么可以帮你？");
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [agentResult, setAgentResult] = useState<ChatResponse | null>(null);
   const [started, setStarted] = useState(false);
@@ -28,8 +28,8 @@ export default function App() {
   const choices = isDemo ? (started ? demoResult.choices : []) : (agentResult?.interaction?.options ?? []).map((option, index) => ({
     id: option.id ?? `option-${index}`, label: option.label, detail: option.detail, message: option.value ?? option.label,
   }));
-  const title = !started ? "先告诉我，你遇到了什么问题" : isDemo ? demoResult.title : steps.find((step) => step.status === "current")?.title ?? "我们继续一起处理";
-  const description = !started ? "一句话、几句话都可以。已经说清楚的信息，我不会重复询问。" : isDemo ? demoResult.description : "我会根据你提供的新情况，随时调整接下来的处理步骤。";
+  const title = !started ? "有什么可以帮你？" : isDemo ? demoResult.title : steps.find((step) => step.status === "current")?.title ?? "继续处理";
+  const description = !started ? "" : isDemo ? demoResult.description : "";
   const note = isDemo ? demoResult.note : agentResult?.plan?.revision_note;
   const allowImages = !isDemo && agentResult?.interaction?.type === "image";
 
@@ -95,7 +95,7 @@ export default function App() {
 
   function reset() {
     requestVersion.current += 1;
-    setReply("你可以直接说发生了什么，不用准备订单信息，也不用使用专业术语。");
+    setReply("你好，我是 Anker 智能服务助手。有什么可以帮你？");
     setLastUserMessage("");
     setAgentResult(null);
     setStarted(false);
@@ -122,37 +122,39 @@ export default function App() {
       <main className="resolve-main">
         <section className="resolve-intro">
           <p>ANKER 智能服务</p>
-          <h1>你好，需要我帮你解决什么问题？</h1>
+          <h1>智能服务</h1>
         </section>
 
-        <div className={`resolve-layout ${steps.length === 0 ? "is-conversation-only" : ""}`}>
-          {steps.length > 0 && <aside className="resolve-progress" aria-label="解决进度">
+        <div className="resolve-layout">
+          <aside className="resolve-progress" aria-label="解决路径">
             <div className="resolve-progress-title">
-              <h2>解决进度</h2>
+              <h2>解决路径</h2>
               {progress !== null && <span>{progress}%</span>}
             </div>
             {progress !== null && <div className="resolve-progress-bar"><i style={{ width: `${progress}%` }} /></div>}
-            <ol>
+            {steps.length > 0 ? <ol>
               {steps.map((step) => (
                 <li key={step.id} className={`resolve-step is-${step.status}`} aria-current={step.status === "current" ? "step" : undefined}>
                   <span>{step.status === "done" ? "✓" : ""}</span>
                   <p>{step.title}</p>
                 </li>
               ))}
-            </ol>
-          </aside>}
+            </ol> : <div className="resolve-path-placeholder" aria-label="路径将在分析后显示">
+              <i /><i /><i /><i />
+            </div>}
+          </aside>
 
           <section className="resolve-card" aria-live="polite">
             <div className="resolve-assistant">
               <span>AI</span>
-              <div><strong>Anker 智能服务助手</strong><small>正在为你解决问题</small></div>
+              <div><strong>Anker 智能服务助手</strong><small>在线</small></div>
             </div>
 
             <div className="resolve-content">
               {note && <div className="resolve-note">接下来的步骤已调整 · {note}</div>}
-              <p className="resolve-eyebrow">{started ? "当前要做的事" : "从你的问题开始"}</p>
+              {started && <p className="resolve-eyebrow">当前步骤</p>}
               <h2>{title}</h2>
-              <p className="resolve-description">{description}</p>
+              {description && <p className="resolve-description">{description}</p>}
 
               {progress !== null && progress >= 99 && (
                 <div className={`resolve-score ${complete ? "is-complete" : ""}`}>
@@ -190,7 +192,7 @@ export default function App() {
                 <div className="resolve-composer">
                   {allowImages && agentResult?.interaction?.image_prompt && <p className="resolve-image-prompt">{agentResult.interaction.image_prompt}</p>}
                   <ChatInput disabled={busy || (!isDemo && !sessionId)} onSend={handleSend} allowImages={allowImages} />
-                  <p>{choices.length ? "可以选择上方选项，也可以补充实际情况" : "直接描述情况即可"}</p>
+                  {choices.length > 0 && <p>也可以补充实际情况</p>}
                 </div>
               )}
             </div>
