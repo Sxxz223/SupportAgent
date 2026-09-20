@@ -36,6 +36,11 @@ describe("service workspace", () => {
       ],
       focusTaskId: "charging",
       focusPath: { currentState: "正在定位异常", knownFacts: ["换线后仍无效"], currentJudgement: "需要确认接口", nextDirection: "确认当前接口" },
+      plan: { steps: [
+        { id: "model", title: "确定产品型号", status: "done" },
+        { id: "port", title: "确认当前接口", status: "current" },
+        { id: "verify", title: "验证充电状态", status: "pending" },
+      ], revision_note: "换线无效，改为检查接口" },
       interaction: { type: "choice", question: "当前连接的是哪个接口？", options: [{ id: "c1", label: "USB-C 1" }, { id: "c2", label: "USB-C 2" }] },
       agentState: { emoji: "investigating" },
     });
@@ -47,6 +52,9 @@ describe("service workspace", () => {
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "USB-C 1" })).toBeInTheDocument();
     expect(screen.getByText("正在排查")).toBeInTheDocument();
+    expect(screen.getByText("确定产品型号")).toBeInTheDocument();
+    expect(screen.getByText("确认当前接口", { selector: ".solution-path span" })).toBeInTheDocument();
+    expect(screen.getByText("路径已更新：换线无效，改为检查接口")).toBeInTheDocument();
   });
 
   it("shows image input only when the API enables it", async () => {

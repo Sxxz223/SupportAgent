@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createSession, getSessionEventsUrl, sendMessage, sendMultimodalMessage } from "./api/client";
 import { ChatInput } from "./components/ChatInput";
-import type { ChatResponse, FocusPath, Interaction, TaskStage, TaskUpdate, UiMessage } from "./types/chat";
+import type { ChatResponse, FocusPath, Interaction, SolutionPlan, TaskStage, TaskUpdate, UiMessage } from "./types/chat";
 import "./resolve/workspace.css";
 
 const stageProgress: Record<TaskStage, number> = {
@@ -23,6 +23,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Record<string, TaskUpdate>>({});
   const [focusTaskId, setFocusTaskId] = useState("");
   const [focusPath, setFocusPath] = useState<FocusPath>(initialFocus);
+  const [plan, setPlan] = useState<SolutionPlan>({ steps: [] });
   const [messages, setMessages] = useState<UiMessage[]>([
     { id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" },
   ]);
@@ -89,6 +90,7 @@ export default function App() {
     }
     if (response.focusTaskId) setFocusTaskId(response.focusTaskId);
     if (response.focusPath) setFocusPath(response.focusPath);
+    if (response.plan) setPlan(response.plan);
     setInteraction(response.interaction ?? { type: "text" });
     setAgentState(response.agentState?.emoji ?? null);
     setVisionResult(response.visionResult);
@@ -121,6 +123,7 @@ export default function App() {
   function reset() {
     cancelProactive(); requestVersion.current += 1;
     setTasks({}); setFocusTaskId(""); setFocusPath(initialFocus);
+    setPlan({ steps: [] });
     setMessages([{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" }]);
     setInteraction({ type: "text" }); setAgentState(null); setVisionResult(undefined);
     setPending(null); setError(""); setSessionId(""); void connect();
@@ -143,8 +146,15 @@ export default function App() {
 
       <main className="service-workspace">
         <aside className="focus-panel" aria-label="当前解决重点">
-          <p className="panel-kicker">当前解决重点</p>
+          <p className="panel-kicker">实时解决路径</p>
           <h2>{focusedTask?.name ?? "等待开始"}</h2>
+          {plan.steps.length > 0 && <ol className="solution-path" aria-label="解决步骤">
+            {plan.steps.map((step) => <li key={step.id} className={`is-${step.status}`}>
+              <i aria-hidden="true">{step.status === "done" ? "✓" : step.status === "current" ? "●" : ""}</i>
+              <span>{step.title}</span>
+            </li>)}
+          </ol>}
+          {plan.revision_note && <p className="path-revision">路径已更新：{plan.revision_note}</p>}
           <section><span>当前状态</span><p>{focusPath.currentState}</p></section>
           {focusPath.knownFacts.length > 0 && <section><span>已确认</span><ul>{focusPath.knownFacts.map((fact) => <li key={fact}>{fact}</li>)}</ul></section>}
           <section><span>当前判断</span><p>{focusPath.currentJudgement}</p></section>

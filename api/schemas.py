@@ -27,6 +27,7 @@ class ChatResponse(BaseModel):
     focusTaskId: str | None = None
     focusChanged: bool | None = None
     focusPath: dict[str, Any] | None = None
+    plan: dict[str, Any] | None = None
     agentState: dict[str, str] | None = None
     visionResult: dict[str, Any] | None = None
 

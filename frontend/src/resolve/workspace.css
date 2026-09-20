@@ -27,6 +27,15 @@ button, textarea { font: inherit; }
 .focus-panel { padding:24px 21px; align-self:start; }
 .panel-kicker { margin:0 0 9px; color:#1265e8; font-size:11px; font-weight:700; letter-spacing:.1em; }
 .focus-panel h2 { margin:0 0 24px; font-size:21px; }
+.solution-path { margin:0 0 18px; padding:0; list-style:none; }
+.solution-path li { position:relative; display:grid; grid-template-columns:24px 1fr; gap:9px; min-height:43px; color:#8a95a6; font-size:13px; line-height:1.45; }
+.solution-path li:not(:last-child)::after { content:""; position:absolute; left:11px; top:23px; bottom:3px; width:2px; background:#e3e8f0; }
+.solution-path i { position:relative; z-index:1; display:grid; place-items:center; width:24px; height:24px; color:#8b96a6; background:#eef1f5; border-radius:50%; font-style:normal; font-size:11px; }
+.solution-path .is-done { color:#526079; }
+.solution-path .is-done i { color:#fff; background:#2dbd78; }
+.solution-path .is-current { color:#172033; font-weight:700; }
+.solution-path .is-current i { color:#fff; background:#1265e8; box-shadow:0 0 0 4px #1265e81a; }
+.path-revision { margin:-3px 0 18px; padding:10px 12px; color:#245cae; background:#eef5ff; border-radius:9px; font-size:12px; line-height:1.55; }
 .focus-panel section { padding:15px 0; border-top:1px solid #edf0f5; }
 .focus-panel section>span { display:block; margin-bottom:7px; color:#8993a4; font-size:11px; }
 .focus-panel section p { margin:0; color:#3e4c62; font-size:13px; line-height:1.65; }

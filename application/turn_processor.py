@@ -35,7 +35,7 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
     presentation = {
         key: payload[key] for key in (
             "interaction", "taskDecision", "taskUpdates", "focusTaskId",
-            "focusChanged", "focusPath", "agentState", "visionResult",
+            "focusChanged", "focusPath", "plan", "agentState", "visionResult",
         )
         if isinstance(payload.get(key), dict)
         or isinstance(payload.get(key), list)
@@ -52,13 +52,15 @@ def _merge_service_view(session: SupportSession, presentation: dict) -> None:
         if task_id:
             session.service_tasks[task_id] = {**session.service_tasks.get(task_id, {}), **task}
     focus_id = presentation.get("focusTaskId")
-    if not focus_id and len(session.service_tasks) == 1:
-        focus_id = next(iter(session.service_tasks))
+    if not focus_id and session.service_tasks:
+        focus_id = session.focus_task_id or next(iter(session.service_tasks))
         presentation["focusTaskId"] = focus_id
     if focus_id:
         session.focus_task_id = focus_id
     if isinstance(presentation.get("focusPath"), dict):
         session.focus_path = presentation["focusPath"]
+    if isinstance(presentation.get("plan"), dict):
+        session.focus_plan = presentation["plan"]
 
 
 def process_turn(
@@ -176,6 +178,7 @@ def process_turn(
                     "tasks": list(session.service_tasks.values()),
                     "focusTaskId": session.focus_task_id,
                     "focusPath": session.focus_path,
+                    "plan": session.focus_plan,
                     "visionRequest": session.vision_request,
                 }, ensure_ascii=False)
             if recorder:

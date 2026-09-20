@@ -22,6 +22,7 @@ class SupportSession:
     service_tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
     focus_task_id: str | None = None
     focus_path: dict[str, Any] = field(default_factory=dict)
+    focus_plan: dict[str, Any] = field(default_factory=dict)
     vision_request: dict[str, Any] = field(default_factory=dict)
     _active_trace: TurnTrace | None = field(default=None, repr=False)
 
