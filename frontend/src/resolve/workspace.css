@@ -1,0 +1,91 @@
+:root { color: #18212f; background: #f4f7fb; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #f4f7fb; }
+button, textarea { font: inherit; }
+.resolve-app { min-height: 100vh; color: #172033; font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.resolve-header { height: 70px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,.96); border-bottom: 1px solid #e8edf4; }
+.resolve-brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+.resolve-mark { display: grid; place-items: center; width: 38px; height: 38px; color: #fff; background: #1265e8; border-radius: 12px; font-size: 19px; font-weight: 800; box-shadow: 0 6px 16px rgba(18,101,232,.22); }
+.resolve-brand > span:last-child { display: grid; line-height: 1.05; }
+.resolve-brand strong { font-size: 14px; letter-spacing: .12em; }
+.resolve-brand small { margin-top: 4px; color: #68758a; font-size: 12px; }
+.resolve-header-actions { display: flex; align-items: center; gap: 20px; }
+.resolve-online { display: flex; align-items: center; gap: 7px; color: #5f6c80; font-size: 13px; }
+.resolve-online i { width: 8px; height: 8px; border-radius: 50%; background: #2dbd78; box-shadow: 0 0 0 4px rgba(45,189,120,.12); }
+.resolve-reset { padding: 8px 13px; color: #445168; background: #fff; border: 1px solid #dce3ed; border-radius: 9px; cursor: pointer; }
+.resolve-main { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 56px; }
+.resolve-intro { margin: 0 0 24px; }
+.resolve-intro p, .resolve-eyebrow { margin: 0 0 8px; color: #1265e8; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+.resolve-intro h1 { margin: 0; font-size: clamp(25px, 3vw, 36px); line-height: 1.25; letter-spacing: -.03em; }
+.resolve-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 20px; align-items: start; }
+.resolve-progress, .resolve-card { background: #fff; border: 1px solid #e5eaf1; border-radius: 18px; box-shadow: 0 12px 35px rgba(45,64,92,.06); }
+.resolve-progress { padding: 22px 20px; }
+.resolve-progress-title { display: flex; align-items: center; justify-content: space-between; }
+.resolve-progress h2 { margin: 0; font-size: 15px; }
+.resolve-progress-title > span { color: #1265e8; font-weight: 700; font-size: 13px; }
+.resolve-progress-bar { height: 5px; margin: 14px 0 7px; overflow: hidden; background: #eef2f7; border-radius: 9px; }
+.resolve-progress-bar i { display: block; height: 100%; background: #1265e8; border-radius: inherit; transition: width .35s ease; }
+.resolve-progress ol { list-style: none; margin: 20px 0 0; padding: 0; }
+.resolve-step { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; min-height: 46px; color: #8791a2; }
+.resolve-step:not(:last-child)::after { content: ""; position: absolute; left: 11px; top: 24px; bottom: 2px; width: 1px; background: #dfe5ed; }
+.resolve-step > span { z-index: 1; display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid #d7dee8; border-radius: 50%; background: #fff; font-size: 11px; }
+.resolve-step p { margin: 2px 0 0; font-size: 13px; line-height: 1.5; }
+.resolve-step.is-done { color: #536176; }
+.resolve-step.is-done > span { color: #fff; background: #1265e8; border-color: #1265e8; }
+.resolve-step.is-current { color: #172033; font-weight: 700; }
+.resolve-step.is-current > span { border: 6px solid #1265e8; box-shadow: 0 0 0 4px #e9f1ff; }
+.resolve-card { overflow: hidden; }
+.resolve-assistant { display: flex; align-items: center; gap: 11px; padding: 17px 24px; border-bottom: 1px solid #edf0f5; }
+.resolve-assistant > span, .resolve-reply > span { display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; color: #fff; background: linear-gradient(145deg,#287cf1,#1255c6); border-radius: 11px; font-weight: 800; font-size: 12px; }
+.resolve-assistant div { display: grid; gap: 3px; }
+.resolve-assistant strong { font-size: 14px; }
+.resolve-assistant small { color: #8590a1; font-size: 12px; }
+.resolve-content { min-height: 510px; padding: clamp(26px,4vw,44px); }
+.resolve-content > h2 { margin: 0; font-size: clamp(25px,3vw,34px); letter-spacing: -.025em; }
+.resolve-description { max-width: 660px; margin: 12px 0 24px; color: #637086; line-height: 1.75; }
+.resolve-note { margin: -4px 0 22px; padding: 11px 14px; color: #275fba; background: #eef5ff; border-radius: 9px; font-size: 13px; }
+.resolve-reply { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; padding: 16px; background: #f7f9fc; border-radius: 13px; }
+.resolve-reply > span { width: 30px; height: 30px; border-radius: 9px; font-size: 10px; }
+.resolve-reply p { margin: 3px 0 0; color: #344157; line-height: 1.7; white-space: pre-wrap; }
+.resolve-choices { display: grid; gap: 9px; margin-top: 20px; }
+.resolve-choices button { position: relative; display: grid; width: 100%; padding: 14px 42px 14px 16px; text-align: left; color: #26344b; background: #fff; border: 1px solid #dfe5ed; border-radius: 11px; cursor: pointer; transition: .18s ease; }
+.resolve-choices button:hover { border-color: #7aa9ef; background: #f7faff; transform: translateY(-1px); }
+.resolve-choices button:disabled { opacity: .55; cursor: wait; }
+.resolve-choices button span { font-weight: 650; }
+.resolve-choices button small { margin-top: 4px; color: #7b8798; }
+.resolve-choices button i { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #1265e8; font-size: 22px; font-style: normal; }
+.resolve-composer { margin-top: 24px; }
+.resolve-composer > p { margin: 9px 2px 0; color: #9aa3b1; font-size: 11px; text-align: center; }
+.resolve-app .chat-input { padding: 0; background: #fff; border: 1px solid #dbe2ec; border-radius: 13px; box-shadow: 0 5px 18px rgba(45,64,92,.05); backdrop-filter: none; }
+.resolve-app .chat-input__row { min-height: 56px; padding: 8px; }
+.resolve-app .chat-input--text .chat-input__row { grid-template-columns: minmax(0,1fr) 42px; }
+.resolve-app .chat-input textarea { color: #26344b; background: transparent; }
+.resolve-app .chat-input textarea::placeholder { color: #96a0ae; }
+.resolve-app .attach-button, .resolve-app .send-button { border-radius: 10px; }
+.resolve-app .attach-button { color: #637086; background: #f2f5f9; border-color: #e2e7ee; }
+.resolve-app .send-button { color: #fff; background: #1265e8; border-color: #1265e8; }
+.resolve-app .send-button:disabled { color: #a8b0bd; background: #edf1f6; border-color: #edf1f6; }
+.resolve-score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px; margin: 22px 0; color: #1265e8; }
+.resolve-score strong { font-size: 58px; line-height: 1; letter-spacing: -.06em; }
+.resolve-score > span { font-size: 22px; font-weight: 700; }
+.resolve-score p { width: 100%; margin: 7px 0 0; color: #6e7a8d; font-size: 13px; }
+.resolve-score.is-complete { color: #15945a; }
+.resolve-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 16px 0; padding: 12px 14px; color: #a43a32; background: #fff1f0; border-radius: 10px; font-size: 13px; }
+.resolve-error button { color: #a43a32; background: transparent; border: 0; font-weight: 700; cursor: pointer; }
+.resolve-primary { margin-top: 24px; padding: 13px 22px; color: #fff; background: #1265e8; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
+.r-image-error { margin: 8px 12px 0; color: #a43a32; font-size: 12px; }
+@media (max-width: 760px) {
+  .resolve-header { height: 62px; padding: 0 16px; }
+  .resolve-online { display: none; }
+  .resolve-main { width: min(100% - 24px, 620px); padding: 28px 0; }
+  .resolve-intro { margin-bottom: 18px; }
+  .resolve-layout { grid-template-columns: 1fr; }
+  .resolve-progress { padding: 17px; }
+  .resolve-progress ol { display: flex; gap: 5px; margin-top: 15px; }
+  .resolve-step { display: block; flex: 1; min-height: 0; }
+  .resolve-step:not(:last-child)::after { left: 22px; right: -5px; top: 11px; bottom: auto; width: auto; height: 1px; }
+  .resolve-step p { display: none; }
+  .resolve-step > span { position: relative; }
+  .resolve-content { min-height: auto; padding: 25px 19px; }
+  .resolve-assistant { padding: 14px 18px; }
+}

@@ -9,7 +9,7 @@ type MessageBubbleProps = {
 };
 
 export function MessageBubble({ message, onImageLoad }: MessageBubbleProps) {
-  const label = message.role === "user" ? "You" : "Support";
+  const label = message.role === "user" ? "你" : "Resolve 助手";
 
   return (
     <article className={`message message--${message.role}`}>
@@ -26,7 +26,7 @@ export function MessageBubble({ message, onImageLoad }: MessageBubbleProps) {
         {message.content && (
           message.role === "assistant" ? (
             <div className="message__markdown">
-              <ReactMarkdown remarkPlugins={[remarkBreaks]} skipHtml>
+              <ReactMarkdown remarkPlugins={[remarkBreaks]} skipHtml components={{ img: () => null }}>
                 {message.content}
               </ReactMarkdown>
             </div>
