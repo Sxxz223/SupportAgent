@@ -1,18 +1,51 @@
 """FastAPI transport for the existing support application."""
 from pathlib import Path
 import sys
+import importlib.util
+import os
 from collections.abc import Callable
 from tempfile import NamedTemporaryFile
 
 # Support the requested `uvicorn api.app:app` command without allowing the
 # project's `agents/` package to shadow the installed Agents SDK.
 project_dir = Path(__file__).resolve().parents[1]
+
+
+def _load_local_environment() -> None:
+    """Load ignored local credentials without logging or overwriting shell values."""
+    env_file = project_dir / ".env"
+    if not env_file.is_file():
+        return
+    for raw_line in env_file.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if name and name.replace("_", "").isalnum():
+            os.environ.setdefault(name, value)
+
+
+_load_local_environment()
 sys.path[:] = [
     path for path in sys.path
     if Path(path or ".").resolve() != project_dir
 ]
 if str(project_dir.parent) not in sys.path:
     sys.path.insert(0, str(project_dir.parent))
+
+# The repository may be cloned under any folder name. Register the package
+# alias used by the existing imports so `uvicorn api.app:app` works in-place.
+if "my_project" not in sys.modules:
+    package_spec = importlib.util.spec_from_file_location(
+        "my_project", project_dir / "__init__.py",
+        submodule_search_locations=[str(project_dir)],
+    )
+    if package_spec and package_spec.loader:
+        package = importlib.util.module_from_spec(package_spec)
+        sys.modules["my_project"] = package
+        package_spec.loader.exec_module(package)
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -259,7 +292,7 @@ def create_app(
         session_id = request.app.state.session_store.create_session()
         return SessionResponse(session_id=session_id)
 
-    @api.post("/chat", response_model=ChatResponse)
+    @api.post("/chat", response_model=ChatResponse, response_model_exclude_none=True)
     def chat(payload: ChatRequest, request: Request) -> ChatResponse:
         session = request.app.state.session_store.get_session(payload.session_id)
         if session is None:
@@ -270,9 +303,9 @@ def create_app(
             user_input=payload.message,
             image_path=None,
         )
-        return ChatResponse(reply=reply, stage=session.state.stage)
+        return ChatResponse(reply=reply, stage=session.state.stage, **session.presentation)
 
-    @api.post("/chat/multimodal", response_model=ChatResponse)
+    @api.post("/chat/multimodal", response_model=ChatResponse, response_model_exclude_none=True)
     def chat_multimodal(
         request: Request,
         session_id: str = Form(...),
@@ -291,7 +324,7 @@ def create_app(
                 user_input=message,
                 image_path=image_path,
             )
-            return ChatResponse(reply=reply, stage=session.state.stage)
+            return ChatResponse(reply=reply, stage=session.state.stage, **session.presentation)
         finally:
             image.file.close()
             if image_path is not None:

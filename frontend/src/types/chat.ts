@@ -25,4 +25,5 @@ export type ChatResponse = {
     revision_note?: string;
   };
   facts_update?: Record<string, string>;
+  emotion?: { emoji: string; label: string };
 };

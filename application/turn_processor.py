@@ -1,4 +1,5 @@
 """Coordinate one support turn using the existing domain modules."""
+import json
 import re
 
 from agents import Runner
@@ -18,6 +19,24 @@ from ..workflow.actions import decide_next_action
 from ..workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
 
 MAX_AGENT_STEPS = 5
+
+
+def _parse_agent_output(raw: str) -> tuple[str, dict]:
+    """Separate customer copy from the Agent-owned UI description."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE)
+    try:
+        payload = json.loads(text)
+    except (TypeError, ValueError):
+        return raw, {}
+    if not isinstance(payload, dict) or not isinstance(payload.get("reply"), str):
+        return raw, {}
+    presentation = {
+        key: payload[key] for key in ("interaction", "plan", "facts_update", "emotion")
+        if isinstance(payload.get(key), dict)
+    }
+    return payload["reply"], presentation
 
 
 def process_turn(
@@ -166,6 +185,7 @@ def process_turn(
 
         if support_result is None:
             raise RuntimeError("Main Agent did not run")
+        final_output, session.presentation = _parse_agent_output(str(final_output))
         workflow_after_tools_action = decide_next_action(state)
         _, workflow_after_tools_names = get_allowed_tools(state)
         if recorder:

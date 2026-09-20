@@ -26,7 +26,7 @@ describe("customer service page", () => {
     sendMessageMock.mockResolvedValue({ reply: "先确认一下具体表现", stage: "diagnose", plan: { steps: [
       { id: "understand", title: "确认故障现象", status: "current" },
       { id: "test", title: "测试连接状态", status: "pending" },
-    ], progress: 20 }, interaction: { type: "choice", options: [{ label: "完全没有反应" }, { label: "会短暂连接" }] } });
+    ], progress: 20 }, interaction: { type: "choice", options: [{ label: "完全没有反应" }, { label: "会短暂连接" }] }, emotion: { emoji: "🤔", label: "正在判断" } });
     const user = userEvent.setup();
     render(<App />);
     await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
@@ -37,6 +37,7 @@ describe("customer service page", () => {
     expect(await screen.findByText("先确认一下具体表现")).toBeInTheDocument();
     expect(screen.getAllByText("确认故障现象").find((node) => node.closest("li"))?.closest("li")).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("button", { name: /完全没有反应/ })).toBeInTheDocument();
+    expect(screen.getByText("正在判断")).toBeInTheDocument();
   });
 
   it("keeps failed content available for retry", async () => {

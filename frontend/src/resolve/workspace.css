@@ -42,6 +42,8 @@ button, textarea { font: inherit; }
 .resolve-card { overflow: hidden; }
 .resolve-assistant { display: flex; align-items: center; gap: 11px; padding: 17px 24px; border-bottom: 1px solid #edf0f5; }
 .resolve-assistant > span, .resolve-reply > span { display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; color: #fff; background: linear-gradient(145deg,#287cf1,#1255c6); border-radius: 11px; font-weight: 800; font-size: 12px; }
+.resolve-assistant > span.has-emotion { background: #eef5ff; font-size: 19px; animation: resolve-emotion-in .35s ease-out; }
+@keyframes resolve-emotion-in { from { opacity: 0; transform: scale(.75); } to { opacity: 1; transform: scale(1); } }
 .resolve-assistant div { display: grid; gap: 3px; }
 .resolve-assistant strong { font-size: 14px; }
 .resolve-assistant small { color: #8590a1; font-size: 12px; }

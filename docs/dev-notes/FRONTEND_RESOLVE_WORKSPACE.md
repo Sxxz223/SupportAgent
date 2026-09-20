@@ -25,10 +25,13 @@ The optional response contract is:
     "progress": 20,
     "revision_note": "根据刚才的补充，改为排查输出中断"
   },
-  "facts_update": { "device": "充电宝" }
+  "facts_update": { "device": "充电宝" },
+  "emotion": { "emoji": "🤔", "label": "正在判断" }
 }
 ```
 
 `interaction.type` controls the next input: `choice`, `image`, `text`, `confirm`, or `none`. The image picker appears only for `image`; `image_prompt` tells the customer what to photograph. Older responses containing only `reply` and `stage` remain valid and display as conversation without an invented path.
+
+The support Agent returns this structure in the same model response as its customer-facing reply. The API parses the JSON envelope and exposes the path, interaction and restrained working-state emoji on every turn. The frontend does not infer these values.
 
 Order, warranty, batch, firmware, and known-issue lookup belong after fault and risk assessment when the Agent decides that service fulfillment needs them. Only the customer can move a 99 percent plan to 100 percent by confirming that the problem is resolved.

@@ -1,6 +1,6 @@
 """Public HTTP request and response schemas."""
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,6 +21,10 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     stage: str
+    interaction: dict[str, Any] | None = None
+    plan: dict[str, Any] | None = None
+    facts_update: dict[str, str] | None = None
+    emotion: dict[str, str] | None = None
 
 
 class CustomerCreateRequest(BaseModel):

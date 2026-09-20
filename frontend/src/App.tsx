@@ -32,6 +32,7 @@ export default function App() {
   const description = !started ? "" : isDemo ? demoResult.description : "";
   const note = isDemo ? demoResult.note : agentResult?.plan?.revision_note;
   const allowImages = !isDemo && agentResult?.interaction?.type === "image";
+  const emotion = isDemo ? (started ? { emoji: "🤔", label: "正在判断" } : null) : agentResult?.emotion;
 
   const connect = useCallback(async () => {
     const version = ++requestVersion.current;
@@ -146,8 +147,8 @@ export default function App() {
 
           <section className="resolve-card" aria-live="polite">
             <div className="resolve-assistant">
-              <span>AI</span>
-              <div><strong>Anker 智能服务助手</strong><small>在线</small></div>
+              <span className={emotion ? "has-emotion" : ""}>{emotion?.emoji ?? "AI"}</span>
+              <div><strong>Anker 智能服务助手</strong><small>{emotion?.label ?? "在线"}</small></div>
             </div>
 
             <div className="resolve-content">
