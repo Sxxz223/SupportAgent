@@ -22,9 +22,13 @@ class ChatResponse(BaseModel):
     reply: str
     stage: str
     interaction: dict[str, Any] | None = None
-    plan: dict[str, Any] | None = None
-    facts_update: dict[str, str] | None = None
-    emotion: dict[str, str] | None = None
+    taskDecision: dict[str, Any] | None = None
+    taskUpdates: list[dict[str, Any]] | None = None
+    focusTaskId: str | None = None
+    focusChanged: bool | None = None
+    focusPath: dict[str, Any] | None = None
+    agentState: dict[str, str] | None = None
+    visionResult: dict[str, Any] | None = None
 
 
 class CustomerCreateRequest(BaseModel):

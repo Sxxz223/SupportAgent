@@ -33,10 +33,32 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
     if not isinstance(payload, dict) or not isinstance(payload.get("reply"), str):
         return raw, {}
     presentation = {
-        key: payload[key] for key in ("interaction", "plan", "facts_update", "emotion")
+        key: payload[key] for key in (
+            "interaction", "taskDecision", "taskUpdates", "focusTaskId",
+            "focusChanged", "focusPath", "agentState", "visionResult",
+        )
         if isinstance(payload.get(key), dict)
+        or isinstance(payload.get(key), list)
     }
+    proactive = payload.get("proactiveMessages")
+    if isinstance(proactive, list):
+        presentation["proactiveMessages"] = [item for item in proactive if isinstance(item, dict)]
     return payload["reply"], presentation
+
+
+def _merge_service_view(session: SupportSession, presentation: dict) -> None:
+    for task in presentation.get("taskUpdates", []):
+        task_id = task.get("taskId")
+        if task_id:
+            session.service_tasks[task_id] = {**session.service_tasks.get(task_id, {}), **task}
+    focus_id = presentation.get("focusTaskId")
+    if not focus_id and len(session.service_tasks) == 1:
+        focus_id = next(iter(session.service_tasks))
+        presentation["focusTaskId"] = focus_id
+    if focus_id:
+        session.focus_task_id = focus_id
+    if isinstance(presentation.get("focusPath"), dict):
+        session.focus_path = presentation["focusPath"]
 
 
 def process_turn(
@@ -149,6 +171,13 @@ def process_turn(
             turn.model_context = build_model_context(
                 state=state, turn=turn, events=session.events, history=session.history,
             )
+            if session.service_tasks:
+                turn.model_context += "\n\nCurrent service workspace state:\n" + json.dumps({
+                    "tasks": list(session.service_tasks.values()),
+                    "focusTaskId": session.focus_task_id,
+                    "focusPath": session.focus_path,
+                    "visionRequest": session.vision_request,
+                }, ensure_ascii=False)
             if recorder:
                 recorder.record_context([
                     "current_business_state", "current_turn", "current_turn_evidence",
@@ -186,6 +215,9 @@ def process_turn(
         if support_result is None:
             raise RuntimeError("Main Agent did not run")
         final_output, session.presentation = _parse_agent_output(str(final_output))
+        _merge_service_view(session, session.presentation)
+        for message in session.presentation.pop("proactiveMessages", []):
+            session.proactive_events.append({"turn_index": session.turn_index, **message})
         workflow_after_tools_action = decide_next_action(state)
         _, workflow_after_tools_names = get_allowed_tools(state)
         if recorder:

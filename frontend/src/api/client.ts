@@ -12,6 +12,10 @@ import type {
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+export function getSessionEventsUrl(sessionId: string): string {
+  return `${API_BASE_URL}/session/${encodeURIComponent(sessionId)}/events`;
+}
+
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const headers = new Headers(init.headers);
   if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -116,11 +120,13 @@ export function sendMultimodalMessage(
   sessionId: string,
   message: string,
   image: File,
+  visualContext?: { taskId?: string; interactionType?: string; target?: string; fields?: string[] },
 ): Promise<ChatResponse> {
   const body = new FormData();
   body.append("session_id", sessionId);
   body.append("message", message);
   body.append("image", image);
+  if (visualContext) body.append("visual_context", JSON.stringify(visualContext));
 
   return request<ChatResponse>("/chat/multimodal", {
     method: "POST",

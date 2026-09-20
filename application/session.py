@@ -18,6 +18,11 @@ class SupportSession:
     traces: list[TurnTrace] = field(default_factory=list)
     turn_index: int = 0
     presentation: dict[str, Any] = field(default_factory=dict)
+    proactive_events: list[dict[str, Any]] = field(default_factory=list)
+    service_tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
+    focus_task_id: str | None = None
+    focus_path: dict[str, Any] = field(default_factory=dict)
+    vision_request: dict[str, Any] = field(default_factory=dict)
     _active_trace: TurnTrace | None = field(default=None, repr=False)
 
     def record_event(self, event_type: str, **data: Any) -> RuntimeEvent:

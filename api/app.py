@@ -3,6 +3,8 @@ from pathlib import Path
 import sys
 import importlib.util
 import os
+import asyncio
+import json
 from collections.abc import Callable
 from tempfile import NamedTemporaryFile
 
@@ -49,6 +51,7 @@ if "my_project" not in sys.modules:
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from my_project.api.schemas import (
     ChatRequest,
@@ -292,6 +295,23 @@ def create_app(
         session_id = request.app.state.session_store.create_session()
         return SessionResponse(session_id=session_id)
 
+    @api.get("/session/{session_id}/events")
+    async def session_events(session_id: str, request: Request) -> StreamingResponse:
+        session = request.app.state.session_store.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="Support session not found")
+
+        async def stream():
+            while not await request.is_disconnected():
+                if session.proactive_events:
+                    item = session.proactive_events.pop(0)
+                    yield f"event: proactive_message\ndata: {json.dumps(item, ensure_ascii=False)}\n\n"
+                else:
+                    yield ": keep-alive\n\n"
+                await asyncio.sleep(1)
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
+
     @api.post("/chat", response_model=ChatResponse, response_model_exclude_none=True)
     def chat(payload: ChatRequest, request: Request) -> ChatResponse:
         session = request.app.state.session_store.get_session(payload.session_id)
@@ -310,6 +330,7 @@ def create_app(
         request: Request,
         session_id: str = Form(...),
         message: str = Form(""),
+        visual_context: str = Form(""),
         image: UploadFile = File(...),
     ) -> ChatResponse:
         session = request.app.state.session_store.get_session(session_id)
@@ -318,6 +339,12 @@ def create_app(
 
         image_path: str | None = None
         try:
+            if visual_context:
+                try:
+                    parsed_context = json.loads(visual_context)
+                    session.vision_request = parsed_context if isinstance(parsed_context, dict) else {}
+                except ValueError:
+                    session.vision_request = {}
             image_path = _save_temporary_image(image)
             reply = request.app.state.turn_processor(
                 session=session,

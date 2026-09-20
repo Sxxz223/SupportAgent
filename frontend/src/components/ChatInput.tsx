@@ -11,9 +11,10 @@ type ChatInputProps = {
   disabled: boolean;
   onSend: (message: string, image: File | null) => void;
   allowImages?: boolean;
+  onInteract?: () => void;
 };
 
-export function ChatInput({ disabled, onSend, allowImages = true }: ChatInputProps) {
+export function ChatInput({ disabled, onSend, allowImages = true, onInteract }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export function ChatInput({ disabled, onSend, allowImages = true }: ChatInputPro
   }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    onInteract?.();
     const file = event.target.files?.[0] ?? null;
     setImageError("");
     if (file && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024)) {
@@ -115,7 +117,7 @@ export function ChatInput({ disabled, onSend, allowImages = true }: ChatInputPro
           ref={textareaRef}
           id="message-input"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => { onInteract?.(); setValue(event.target.value); }}
           onKeyDown={handleKeyDown}
           placeholder="描述当前情况，或补充你的反馈…"
           maxLength={4000}
