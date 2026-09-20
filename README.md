@@ -6,34 +6,35 @@
 
 #### 1. Clone 项目
 
-git clone <repo-url>
-cd SupportAgent
+```git clone <repo-url>
+cd SupportAgent```
 
 #### 2. 创建并激活虚拟环境
 
-python3 -m venv .venv
-source .venv/bin/activate
+```python3 -m venv .venv
+source .venv/bin/activate```
 
 #### 3. 安装依赖
 
-pip install -r requirements.txt
+```pip install -r requirements.txt```
 
 #### 4. 配置 API Key
 
-cp .env.example .env
-然后告诉队友编辑 .env：
+```cp .env.example .env```
+
+编辑 .env文件：
 DEEPSEEK_API_KEY=your_deepseek_api_key
 DASHSCOPE_API_KEY=your_dashscope_api_key
-再：
+
 #### 5. 启动后端
 
-uvicorn api.app:app --reload
+```uvicorn api.app:app --reload```
 
 #### 6. 启动前端
 
-cd frontend
+```cd frontend
 npm install
-npm run dev
+npm run dev```
 
 然后打开：
 
