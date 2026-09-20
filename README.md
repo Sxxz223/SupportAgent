@@ -40,13 +40,18 @@ npm run dev
 ```text
 http://localhost:5173
 ```
-
+#### 7. Evaluation查看
+```text
+.venv/bin/python -m evaluation.cli --all \ #复制在终端输入
+  --json evaluation_results.json
+```
+前往
 FastAPI 文档：
 
 ```text
 http://127.0.0.1:8000/docs
 ```
-
+找到Evaluation，点击Try it out，点击execute
 
 # AI Customer Support Agent
 
