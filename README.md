@@ -4,23 +4,36 @@
 
 ### Quick Start
 
-```bash
-# 1. 安装后端依赖
+#### 1. Clone 项目
+
+git clone <repo-url>
+cd SupportAgent
+
+#### 2. 创建并激活虚拟环境
+
 python3 -m venv .venv
 source .venv/bin/activate
+
+#### 3. 安装依赖
+
 pip install -r requirements.txt
 
-# 2. 配置 API Key
-cp .env.example .env
+#### 4. 配置 API Key
 
-# 3. 启动后端
+cp .env.example .env
+然后告诉队友编辑 .env：
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
+再：
+#### 5. 启动后端
+
 uvicorn api.app:app --reload
 
-# 4. 启动前端
+#### 6. 启动前端
+
 cd frontend
 npm install
 npm run dev
-```
 
 然后打开：
 
@@ -213,14 +226,14 @@ The embedding model is downloaded on first use.
 cp .env.example .env
 ```
 
-Set both variables in your shell or load the `.env` file with your preferred environment tool:
+Edit `.env` and enter your own provider credentials:
 
 ```dotenv
 DEEPSEEK_API_KEY=
 DASHSCOPE_API_KEY=
 ```
 
-The application reads environment variables directly; it does not automatically load `.env`.
+The backend automatically loads this file from the repository root. You do not need to export or source it manually. Existing shell variables take precedence over values in `.env`.
 
 ### 3. Start the backend
 
