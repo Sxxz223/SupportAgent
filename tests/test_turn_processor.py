@@ -192,7 +192,11 @@ class SessionTurnTests(unittest.TestCase):
         )
         self.assertIn("Dirty contacts are visible.", agents[1].instructions)
         qwen.assert_called_once_with()
-        analyze.assert_called_once_with(image, "qwen")
+        analyze.assert_called_once()
+        call = analyze.call_args
+        self.assertEqual(call.args, (image, "qwen"))
+        self.assertEqual(call.kwargs["visual_context"], {})
+        self.assertEqual(call.kwargs["existing_facts"]["issue"], "won't charge")
 
     def test_all_updates_precede_decisions(self):
         session = SupportSession()
@@ -222,7 +226,7 @@ class SessionTurnTests(unittest.TestCase):
                 user_name="Alice", product="Anker Prime Charger (250W, 6 Ports, GaNPrime)", issue="won't charge"
             )))
             stack.enter_context(patch.object(processor, "create_qwen_client", return_value="qwen"))
-            stack.enter_context(patch.object(processor, "analyze_image_qwen", side_effect=lambda *_: (
+            stack.enter_context(patch.object(processor, "analyze_image_qwen", side_effect=lambda *_, **__: (
                 events.append("vision") or VisionUpdate(indicator_on=True, contacts_dirty=True)
             )))
             stack.enter_context(patch.object(processor, "create_embedding_model", return_value="embedding"))

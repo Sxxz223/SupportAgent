@@ -20,9 +20,9 @@ class RichExtractionTests(unittest.TestCase):
             },
         )
         state = SupportState()
-        apply_update(state, update)
         session = SupportSession(state=state, turn_index=1)
-        _record_text_facts(session, update)
+        update = _record_text_facts(session, update)
+        apply_update(state, update)
 
         self.assertEqual(state.diagnostic_facts["target_device"], "电脑")
         self.assertEqual(state.attempted_steps, ["更换充电线"])

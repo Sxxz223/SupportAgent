@@ -8,6 +8,11 @@ from ..schemas.state import SupportState
 from ..schemas.vision import VisionUpdate
 from ..schemas.case import CaseFact
 
+CONFLICT_SENSITIVE_FACTS = {
+    "target_device", "symptom", "current_port", "power_reading",
+    "product_model", "safety_signals",
+}
+
 
 @dataclass
 class SupportSession:
@@ -27,7 +32,10 @@ class SupportSession:
     focus_path: dict[str, Any] = field(default_factory=dict)
     focus_plan: dict[str, Any] = field(default_factory=dict)
     pending_task_change: str | None = None
+    pending_fact_conflicts: dict[str, dict[str, Any]] = field(default_factory=dict)
     vision_request: dict[str, Any] = field(default_factory=dict)
+    pending_vision_fields: dict[str, dict[str, Any]] = field(default_factory=dict)
+    pending_reshoot_target: str | None = None
     _active_trace: TurnTrace | None = field(default=None, repr=False)
 
     def record_event(self, event_type: str, **data: Any) -> RuntimeEvent:
@@ -42,13 +50,24 @@ class SupportSession:
 
     def upsert_fact(
         self, key: str, value: Any, source: str, confirmed: bool = False,
-        kind: str = "context",
-    ) -> None:
+        kind: str = "context", detect_conflict: bool = False,
+    ) -> bool:
         if value is None:
-            return
+            return False
         turn_id = f"turn_{self.turn_index:03d}"
         next_version = self.case_version + 1
         current = self.facts.get(key)
+        if current is not None and current.value == value and current.confirmed and not confirmed:
+            return True
+        if (
+            detect_conflict and key in CONFLICT_SENSITIVE_FACTS and current is not None
+            and current.value != value
+        ):
+            self.pending_fact_conflicts[key] = {
+                "key": key, "previous": current.value, "incoming": value,
+                "incomingSource": source, "kind": kind,
+            }
+            return False
         if current is None:
             self.facts[key] = CaseFact(
                 key=key, value=value, source=source, confirmed=confirmed,
@@ -56,6 +75,56 @@ class SupportSession:
             )
         else:
             current.replace(value, source, confirmed, turn_id, next_version, kind)
+        return True
+
+    def resolve_fact_conflict(self, user_input: str) -> tuple[str, Any] | None:
+        normalized = user_input.strip().casefold()
+        for key, conflict in list(self.pending_fact_conflicts.items()):
+            choices = (conflict["previous"], conflict["incoming"])
+            for value in choices:
+                if normalized == str(value).strip().casefold():
+                    self.upsert_fact(
+                        key, value, "user_confirmation", confirmed=True,
+                        kind=conflict.get("kind", "observation"),
+                    )
+                    del self.pending_fact_conflicts[key]
+                    self.pending_vision_fields.pop(key, None)
+                    return key, value
+        return None
+
+    def stage_vision_result(self, fields: list[Any], reshoot_target: str | None) -> None:
+        for field_value in fields:
+            data = field_value.model_dump(mode="json") if hasattr(field_value, "model_dump") else dict(field_value)
+            self.pending_vision_fields[data["key"]] = data
+            current = self.facts.get(data["key"])
+            if (
+                data.get("status") == "recognized" and current is not None
+                and current.value != data.get("value")
+            ):
+                self.pending_fact_conflicts[data["key"]] = {
+                    "key": data["key"], "previous": current.value,
+                    "incoming": data.get("value"), "incomingSource": "image_analysis",
+                    "kind": "observation",
+                }
+        self.pending_reshoot_target = reshoot_target
+
+    def resolve_vision_confirmation(self, user_input: str) -> str | None:
+        normalized = user_input.strip().casefold()
+        if normalized in {"vision_confirm", "识别正确", "确认识别结果"}:
+            for key, field_value in self.pending_vision_fields.items():
+                if field_value.get("status") == "recognized":
+                    self.upsert_fact(
+                        key, field_value.get("value"), "image_confirmed",
+                        confirmed=True, kind="observation", detect_conflict=True,
+                    )
+            self.pending_vision_fields = {}
+            self.pending_reshoot_target = None
+            return "confirmed"
+        if normalized in {"vision_reject", "有错误", "识别有误"}:
+            self.pending_vision_fields = {}
+            self.pending_reshoot_target = None
+            return "rejected"
+        return None
 
     def case_snapshot(self) -> dict[str, Any]:
         """Return the complete JSON-safe customer-service case."""
@@ -72,6 +141,9 @@ class SupportSession:
             "agentState": self.presentation.get("agentState", {}),
             "visionRequest": self.vision_request,
             "pendingTaskChange": self.pending_task_change,
+            "pendingFactConflicts": self.pending_fact_conflicts,
+            "pendingVisionFields": self.pending_vision_fields,
+            "pendingReshootTarget": self.pending_reshoot_target,
         }
 
     def restore_case(self, snapshot: dict[str, Any]) -> None:
@@ -90,6 +162,9 @@ class SupportSession:
         self.focus_plan = dict(snapshot.get("plan") or {})
         self.vision_request = dict(snapshot.get("visionRequest") or {})
         self.pending_task_change = snapshot.get("pendingTaskChange")
+        self.pending_fact_conflicts = dict(snapshot.get("pendingFactConflicts") or {})
+        self.pending_vision_fields = dict(snapshot.get("pendingVisionFields") or {})
+        self.pending_reshoot_target = snapshot.get("pendingReshootTarget")
         self.presentation = {
             key: snapshot[key] for key in ("interaction", "emotionState", "agentState")
             if snapshot.get(key)

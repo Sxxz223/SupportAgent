@@ -63,6 +63,11 @@ def build_model_context(
         vision = turn.vision_update
         current_evidence = [
             "- source: image analyzed in the current turn",
+            f"- requested_fields: {[field.key for field in vision.fields]}",
+            *[
+                f"- {field.key}: value={_format_value(field.value)}, status={field.status}"
+                for field in vision.fields
+            ],
             f"- dock_visible: {_format_value(vision.dock_visible)}",
             f"- indicator_on: {_format_value(vision.indicator_on)}",
             f"- contacts_dirty: {_format_value(vision.contacts_dirty)}",

@@ -12,7 +12,7 @@ export type Interaction = {
   image?: { enabled: boolean; label: string; target: string; fields?: string[] };
   image_prompt?: string;
 };
-export type VisionField = { key: string; label: string; value: string | null; status: "recognized" | "unclear" };
+export type VisionField = { key: string; label: string; value: unknown; status: "recognized" | "unclear" | "failed"; source?: string };
 export type ChatResponse = {
   reply: string;
   stage: string;

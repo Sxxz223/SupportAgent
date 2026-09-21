@@ -33,22 +33,82 @@ AGENT_STATES = {"idle", "thinking", "checking", "investigating", "found", "insig
 PLAN_STATES = {"done", "current", "pending"}
 
 
-def _record_text_facts(session: SupportSession, update) -> None:
+def _record_text_facts(session: SupportSession, update):
+    safe_update = update.model_copy(deep=True)
     for key in ("user_name", "phone_last4", "order_no", "product", "issue"):
         value = getattr(update, key, None)
         if value is not None:
             session.upsert_fact(key, value, "user_text", confirmed=False)
     for key, fact in update.facts.items():
-        session.upsert_fact(
+        accepted = session.upsert_fact(
             key, fact.value, "user_text", confirmed=False, kind=fact.kind,
+            detect_conflict=True,
         )
+        if not accepted:
+            safe_update.facts.pop(key, None)
+    return safe_update
+
+
+FACT_LABELS = {
+    "target_device": "正在连接的设备", "symptom": "当前表现",
+    "current_port": "当前接口", "power_reading": "屏幕功率",
+    "product_model": "产品型号", "safety_signals": "安全状况",
+}
+
+
+def _apply_fact_conflict_view(session: SupportSession, presentation: dict) -> str | None:
+    if not session.pending_fact_conflicts:
+        return None
+    key, conflict = next(iter(session.pending_fact_conflicts.items()))
+    label = FACT_LABELS.get(key, key)
+    previous, incoming = conflict["previous"], conflict["incoming"]
+    presentation["taskDecision"] = {"type": "clarify", "candidateTasks": []}
+    presentation["interaction"] = {
+        "type": "choice",
+        "question": f"所以现在的{label}更接近哪一种？",
+        "options": [
+            {"id": "keep-previous", "label": str(previous), "value": str(previous)},
+            {"id": "use-incoming", "label": str(incoming), "value": str(incoming)},
+        ],
+    }
+    return f"我注意到你前后描述的{label}不太一样。只需要确认现在实际看到的情况。"
 
 
 def _record_vision_facts(session: SupportSession, update) -> None:
+    session.stage_vision_result(update.fields, update.reshoot_target)
     for key in ("dock_visible", "indicator_on", "contacts_dirty", "robot_on_dock", "observation"):
         value = getattr(update, key, None)
         if value is not None:
             session.upsert_fact(key, value, "image_analysis", confirmed=False)
+
+
+def _apply_vision_result_view(session: SupportSession, presentation: dict) -> None:
+    if not session.pending_vision_fields:
+        return
+    fields = list(session.pending_vision_fields.values())
+    presentation["visionResult"] = {
+        "fields": fields,
+        **({"followUp": {"type": "partial_reshoot", "target": session.pending_reshoot_target}}
+           if session.pending_reshoot_target else {}),
+    }
+    incomplete = [item for item in fields if item.get("status") != "recognized"]
+    if incomplete:
+        target = session.pending_reshoot_target or "、".join(item.get("label", item["key"]) for item in incomplete)
+        presentation["interaction"] = {
+            "type": "partial_reshoot",
+            "question": "有一部分没有看清，只需要补拍模糊的位置。",
+            "options": [],
+            "image": {"enabled": True, "label": "补拍图片", "target": target, "fields": [item["key"] for item in incomplete]},
+        }
+    else:
+        presentation["interaction"] = {
+            "type": "image_confirm",
+            "question": "这些识别结果是否正确？",
+            "options": [
+                {"id": "vision-confirm", "label": "识别正确", "value": "vision_confirm"},
+                {"id": "vision-reject", "label": "有错误", "value": "vision_reject"},
+            ],
+        }
 
 
 def _sync_confirmed_business_facts(session: SupportSession) -> None:
@@ -99,7 +159,10 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
 
 def _merge_service_view(session: SupportSession, presentation: dict, user_input: str) -> None:
     for key, value in presentation.get("factsUpdate", {}).items():
-        session.upsert_fact(key, value, "agent_extraction", confirmed=False)
+        session.upsert_fact(
+            key, value, "agent_extraction", confirmed=False,
+            detect_conflict=True,
+        )
     decision_type = presentation.get("taskDecision", {}).get("type")
     if decision_type == "propose_split":
         session.pending_task_change = "split"
@@ -147,6 +210,15 @@ def process_turn(
     """
     session.turn_index += 1
     state = session.state
+    resolved_conflict = session.resolve_fact_conflict(user_input)
+    if resolved_conflict:
+        key, value = resolved_conflict
+        state.diagnostic_facts[key] = value
+    vision_confirmation = session.resolve_vision_confirmation(user_input)
+    if vision_confirmation == "confirmed":
+        for key, fact in session.facts.items():
+            if fact.source == "image_confirmed":
+                state.diagnostic_facts[key] = fact.value
     turn = TurnContext(user_input=user_input, image_path=image_path)
     try:
         recorder: TraceRecorder | None = TraceRecorder(
@@ -166,8 +238,8 @@ def process_turn(
         update = extract_state_update(extractor_agent, user_input)
         if recorder:
             recorder.record_extraction(update)
+        update = _record_text_facts(session, update)
         apply_update(state, update)
-        _record_text_facts(session, update)
 
         if image_path:
             failed_stage = "vision"
@@ -176,7 +248,11 @@ def process_turn(
             except Exception:
                 vision_before = {}
             vision_client = create_qwen_client()
-            turn.vision_update = analyze_image_qwen(image_path, vision_client)
+            turn.vision_update = analyze_image_qwen(
+                image_path, vision_client,
+                visual_context=session.vision_request,
+                existing_facts={key: fact.value for key, fact in session.facts.items()},
+            )
             apply_vision_update(state, turn.vision_update)
             _record_vision_facts(session, turn.vision_update)
             try:
@@ -301,6 +377,10 @@ def process_turn(
         _sync_confirmed_business_facts(session)
         final_output, session.presentation = _parse_agent_output(str(final_output))
         _merge_service_view(session, session.presentation, user_input)
+        _apply_vision_result_view(session, session.presentation)
+        conflict_reply = _apply_fact_conflict_view(session, session.presentation)
+        if conflict_reply:
+            final_output = conflict_reply
         session.case_version += 1
         session.presentation["turnId"] = f"turn_{session.turn_index:03d}"
         session.presentation["caseVersion"] = session.case_version

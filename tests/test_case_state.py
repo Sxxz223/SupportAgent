@@ -41,6 +41,25 @@ class CaseStateTests(unittest.TestCase):
         self.assertEqual(restored.focus_plan, session.focus_plan)
         self.assertEqual(restored.presentation["interaction"]["type"], "choice")
 
+    def test_sensitive_conflict_waits_for_user_choice(self):
+        session = SupportSession(turn_index=1)
+        self.assertTrue(session.upsert_fact(
+            "power_reading", "65W", "user_text", kind="observation",
+            detect_conflict=True,
+        ))
+        session.turn_index = 2
+        self.assertFalse(session.upsert_fact(
+            "power_reading", "6.5W", "image_analysis", kind="observation",
+            detect_conflict=True,
+        ))
+        self.assertEqual(session.facts["power_reading"].value, "65W")
+        self.assertIn("power_reading", session.pending_fact_conflicts)
+
+        resolved = session.resolve_fact_conflict("6.5W")
+        self.assertEqual(resolved, ("power_reading", "6.5W"))
+        self.assertEqual(session.facts["power_reading"].value, "6.5W")
+        self.assertTrue(session.facts["power_reading"].confirmed)
+
 
 if __name__ == "__main__":
     unittest.main()

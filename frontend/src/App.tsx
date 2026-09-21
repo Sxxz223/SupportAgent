@@ -193,7 +193,7 @@ export default function App() {
             {interaction.question && <h3>{interaction.question}</h3>}
             {visionResult && <div className="vision-result">
               {visionResult.fields.map((field) => <div key={field.key} className={field.status === "unclear" ? "is-unclear" : ""}>
-                <span>{field.label}</span><strong>{field.value ?? "需要补充"}</strong>
+                <span>{field.label}</span><strong>{field.value == null ? "需要补充" : String(field.value)}</strong>
               </div>)}
             </div>}
             {(interaction.options?.length ?? 0) > 0 && <div className={`action-options is-${interaction.type}`}>
