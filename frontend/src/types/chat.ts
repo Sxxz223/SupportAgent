@@ -16,13 +16,17 @@ export type VisionField = { key: string; label: string; value: string | null; st
 export type ChatResponse = {
   reply: string;
   stage: string;
+  turnId?: string;
+  caseVersion?: number;
   taskDecision?: { type: "single" | "propose_split" | "confirmed" | "clarify" };
   taskUpdates?: TaskUpdate[];
   focusTaskId?: string;
   focusChanged?: boolean;
+  focusChangeReason?: string;
   focusPath?: FocusPath;
   interaction?: Interaction;
   agentState?: { emoji: "thinking" | "investigating" | "insight" | "done_step" | "resolved" };
+  emotionState?: { state: string; trend: string };
   visionResult?: { fields: VisionField[]; followUp?: { type: "partial_reshoot"; target: string } };
   plan?: SolutionPlan;
 };

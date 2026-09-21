@@ -36,6 +36,8 @@ export default function App() {
   const requestVersion = useRef(0);
   const proactiveTimer = useRef<number | null>(null);
   const lastProactiveAt = useRef(0);
+  const caseVersion = useRef(0);
+  const currentTurnId = useRef("");
   const messageEnd = useRef<HTMLDivElement>(null);
 
   const taskList = useMemo(() => Object.values(tasks), [tasks]);
@@ -68,7 +70,8 @@ export default function App() {
     if (!sessionId) return;
     const source = new EventSource(getSessionEventsUrl(sessionId));
     source.addEventListener("proactive_message", (event) => {
-      const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number };
+      const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number; turnId?: string; caseVersion?: number };
+      if ((data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
       if (!data.content || Date.now() - lastProactiveAt.current < 8000) return;
       cancelProactive();
       proactiveTimer.current = window.setTimeout(() => {
@@ -76,10 +79,20 @@ export default function App() {
         lastProactiveAt.current = Date.now();
       }, Math.min((data.expiresInSeconds ?? 2) * 500, 1800));
     });
+    source.addEventListener("agent_state", (event) => {
+      const data = JSON.parse((event as MessageEvent).data) as { state?: string; turnId?: string; caseVersion?: number };
+      if ((data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
+      const aliases = { checking: "investigating", found: "insight", completed: "done_step", idle: null } as const;
+      const state = data.state && data.state in aliases ? aliases[data.state as keyof typeof aliases] : data.state;
+      if (state === null || state === "thinking" || state === "investigating" || state === "insight" || state === "done_step" || state === "resolved") setAgentState(state);
+    });
     return () => source.close();
   }, [sessionId, cancelProactive]);
 
   function applyResponse(response: ChatResponse) {
+    if (typeof response.caseVersion === "number" && response.caseVersion < caseVersion.current) return;
+    if (typeof response.caseVersion === "number") caseVersion.current = response.caseVersion;
+    if (response.turnId) currentTurnId.current = response.turnId;
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: response.reply }]);
     if (response.taskUpdates) {
       setTasks((current) => {
@@ -127,6 +140,7 @@ export default function App() {
     setMessages([{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" }]);
     setInteraction({ type: "text" }); setAgentState(null); setVisionResult(undefined);
     setPending(null); setError(""); setSessionId(""); void connect();
+    caseVersion.current = 0; currentTurnId.current = "";
   }
 
   return (

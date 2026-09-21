@@ -19,6 +19,17 @@ from ..workflow.actions import decide_next_action
 from ..workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
 
 MAX_AGENT_STEPS = 5
+TASK_DECISIONS = {"single", "clarify", "propose_split", "confirmed"}
+INTERACTION_TYPES = {
+    "choice", "choice_image", "image", "text", "confirm", "split_confirm",
+    "completion_confirm", "image_confirm", "partial_reshoot", "none",
+}
+TASK_STAGES = {
+    "confirmed", "collecting", "information_ready", "judgement_formed",
+    "solution_provided", "waiting_confirmation", "completed", "cancelled",
+}
+AGENT_STATES = {"idle", "thinking", "checking", "investigating", "found", "insight", "done_step", "completed", "resolved"}
+PLAN_STATES = {"done", "current", "pending"}
 
 
 def _parse_agent_output(raw: str) -> tuple[str, dict]:
@@ -35,18 +46,74 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
     presentation = {
         key: payload[key] for key in (
             "interaction", "taskDecision", "taskUpdates", "focusTaskId",
-            "focusChanged", "focusPath", "plan", "agentState", "visionResult",
+            "focusChanged", "focusChangeReason", "focusPath", "plan", "agentState",
+            "emotionState", "visionResult",
         )
         if isinstance(payload.get(key), dict)
         or isinstance(payload.get(key), list)
     }
+    decision = presentation.get("taskDecision")
+    if decision and decision.get("type") not in TASK_DECISIONS:
+        presentation.pop("taskDecision", None)
+    interaction = presentation.get("interaction")
+    if interaction and interaction.get("type") not in INTERACTION_TYPES:
+        presentation.pop("interaction", None)
+    tasks = presentation.get("taskUpdates")
+    if tasks is not None:
+        presentation["taskUpdates"] = [
+            task for task in tasks
+            if isinstance(task, dict)
+            and isinstance(task.get("taskId"), str)
+            and isinstance(task.get("name"), str)
+            and task.get("stage") in TASK_STAGES
+            and isinstance(task.get("statusText"), str)
+        ]
+    agent_state = presentation.get("agentState")
+    if agent_state and agent_state.get("emoji") not in AGENT_STATES:
+        presentation.pop("agentState", None)
+    plan = presentation.get("plan")
+    if plan:
+        steps = plan.get("steps")
+        if not isinstance(steps, list):
+            presentation.pop("plan", None)
+        else:
+            valid_steps = [
+                step for step in steps
+                if isinstance(step, dict)
+                and isinstance(step.get("id"), str)
+                and isinstance(step.get("title"), str)
+                and step.get("status") in PLAN_STATES
+            ]
+            if not valid_steps or sum(step["status"] == "current" for step in valid_steps) > 1:
+                presentation.pop("plan", None)
+            else:
+                plan["steps"] = valid_steps
     proactive = payload.get("proactiveMessages")
     if isinstance(proactive, list):
         presentation["proactiveMessages"] = [item for item in proactive if isinstance(item, dict)]
     return payload["reply"], presentation
 
 
-def _merge_service_view(session: SupportSession, presentation: dict) -> None:
+def _merge_service_view(session: SupportSession, presentation: dict, user_input: str) -> None:
+    decision_type = presentation.get("taskDecision", {}).get("type")
+    if decision_type == "propose_split":
+        session.pending_task_change = "split"
+        presentation["taskUpdates"] = []
+        presentation.pop("focusTaskId", None)
+        presentation.pop("focusPath", None)
+        presentation.pop("plan", None)
+    elif decision_type == "confirmed" and session.pending_task_change == "split":
+        normalized = user_input.strip().lower()
+        if normalized in {"split", "分开处理", "分别处理"}:
+            session.pending_task_change = None
+        elif normalized in {"keep_one", "保持一个任务", "合并处理"}:
+            session.pending_task_change = None
+            presentation["taskUpdates"] = presentation.get("taskUpdates", [])[:1]
+        else:
+            presentation["taskUpdates"] = []
+            presentation.pop("focusTaskId", None)
+            presentation.pop("focusPath", None)
+            presentation.pop("plan", None)
     for task in presentation.get("taskUpdates", []):
         task_id = task.get("taskId")
         if task_id:
@@ -218,9 +285,17 @@ def process_turn(
         if support_result is None:
             raise RuntimeError("Main Agent did not run")
         final_output, session.presentation = _parse_agent_output(str(final_output))
-        _merge_service_view(session, session.presentation)
+        _merge_service_view(session, session.presentation, user_input)
+        session.case_version += 1
+        session.presentation["turnId"] = f"turn_{session.turn_index:03d}"
+        session.presentation["caseVersion"] = session.case_version
         for message in session.presentation.pop("proactiveMessages", []):
-            session.proactive_events.append({"turn_index": session.turn_index, **message})
+            session.proactive_events.append({
+                "turn_index": session.turn_index,
+                "turnId": session.presentation["turnId"],
+                "caseVersion": session.case_version,
+                **message,
+            })
         workflow_after_tools_action = decide_next_action(state)
         _, workflow_after_tools_names = get_allowed_tools(state)
         if recorder:

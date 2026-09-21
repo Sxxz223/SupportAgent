@@ -17,12 +17,14 @@ class SupportSession:
     events: list[RuntimeEvent] = field(default_factory=list)
     traces: list[TurnTrace] = field(default_factory=list)
     turn_index: int = 0
+    case_version: int = 0
     presentation: dict[str, Any] = field(default_factory=dict)
     proactive_events: list[dict[str, Any]] = field(default_factory=list)
     service_tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
     focus_task_id: str | None = None
     focus_path: dict[str, Any] = field(default_factory=dict)
     focus_plan: dict[str, Any] = field(default_factory=dict)
+    pending_task_change: str | None = None
     vision_request: dict[str, Any] = field(default_factory=dict)
     _active_trace: TurnTrace | None = field(default=None, repr=False)
 
