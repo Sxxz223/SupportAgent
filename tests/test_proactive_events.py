@@ -34,14 +34,10 @@ class ProactiveEventTests(unittest.TestCase):
 
         self.assertEqual(
             [item["eventType"] for item in session.proactive_events],
-            ["agent_state", "agent_state", "proactive_message"],
+            ["agent_state", "proactive_message"],
         )
         self.assertEqual(session.proactive_events[0]["state"], "thinking")
-        self.assertEqual(
-            [item.get("state") for item in session.proactive_events[:2]],
-            ["thinking", "thinking"],
-        )
-        message = session.proactive_events[2]
+        message = session.proactive_events[1]
         self.assertEqual(message["turnId"], "turn_001")
         self.assertEqual(message["caseVersion"], 1)
         self.assertGreater(message["deliverAt"], time.time())

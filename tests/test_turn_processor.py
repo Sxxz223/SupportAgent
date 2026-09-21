@@ -281,6 +281,24 @@ class SessionTurnTests(unittest.TestCase):
 
 
 class ResourceLifecycleTests(unittest.TestCase):
+    def test_concurrent_first_embedding_calls_share_one_initialization(self):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        from my_project.rag import embeddings
+
+        embeddings.create_embedding_model.cache_clear()
+        model = object()
+
+        def construct(*_args, **_kwargs):
+            time.sleep(0.03)
+            return model
+
+        with patch.object(embeddings, "SentenceTransformer", side_effect=construct) as constructor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = list(executor.map(lambda _: embeddings.create_embedding_model(), range(4)))
+        self.assertTrue(all(result is model for result in results))
+        constructor.assert_called_once()
+
     def test_provider_and_embedding_factories_are_singletons(self):
         from my_project.providers import deepseek, qwen
         from my_project.rag import embeddings

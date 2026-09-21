@@ -21,6 +21,21 @@ class FakeVisionClient:
 
 
 class DynamicVisionTests(unittest.TestCase):
+    def test_partial_reshoot_reply_contains_only_the_current_visual_action(self):
+        from my_project.application.turn_processor import _apply_vision_result_view
+        session = SupportSession()
+        session.pending_vision_fields = {
+            "power_reading": {
+                "key": "power_reading", "label": "当前功率", "value": None,
+                "status": "unclear", "source": "image",
+            }
+        }
+        session.pending_reshoot_target = "屏幕功率区域"
+        view = {}
+        reply = _apply_vision_result_view(session, view)
+        self.assertEqual(view["interaction"]["type"], "partial_reshoot")
+        self.assertEqual(reply, "这张照片有一部分没有看清，只需要补拍屏幕功率区域。")
+
     def test_visual_context_controls_requested_fields(self):
         client = FakeVisionClient({
             "fields": [

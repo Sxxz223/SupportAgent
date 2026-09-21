@@ -22,6 +22,7 @@ from ..schemas.presentation import validate_presentation
 from ..workflow.task_engine import apply_task_updates, confirm_task_change, propose_task_change
 from ..workflow.focus_engine import apply_focus_change, apply_live_plan
 from ..workflow.emotion_engine import apply_emotion_state
+from ..workflow.proactive_engine import apply_waiting_and_proactive_state
 
 MAX_AGENT_STEPS = 5
 TASK_DECISIONS = {"single", "clarify", "propose_split", "confirmed"}
@@ -86,9 +87,9 @@ def _record_vision_facts(session: SupportSession, update) -> None:
             session.upsert_fact(key, value, "image_analysis", confirmed=False)
 
 
-def _apply_vision_result_view(session: SupportSession, presentation: dict) -> None:
+def _apply_vision_result_view(session: SupportSession, presentation: dict) -> str | None:
     if not session.pending_vision_fields:
-        return
+        return None
     fields = list(session.pending_vision_fields.values())
     presentation["visionResult"] = {
         "fields": fields,
@@ -104,6 +105,7 @@ def _apply_vision_result_view(session: SupportSession, presentation: dict) -> No
             "options": [],
             "image": {"enabled": True, "label": "补拍图片", "target": target, "fields": [item["key"] for item in incomplete]},
         }
+        return f"这张照片有一部分没有看清，只需要补拍{target}。"
     else:
         presentation["interaction"] = {
             "type": "image_confirm",
@@ -113,6 +115,7 @@ def _apply_vision_result_view(session: SupportSession, presentation: dict) -> No
                 {"id": "vision-reject", "label": "有错误", "value": "vision_reject"},
             ],
         }
+        return "我已经提取了这张图片中的关键信息，请确认识别结果是否正确。"
 
 
 def _sync_confirmed_business_facts(session: SupportSession) -> None:
@@ -214,12 +217,13 @@ def process_turn(
     # A new customer action invalidates every unsent event from the previous turn.
     session.proactive_events.clear()
     started_at = time.time()
+    initial_agent_state = "checking" if image_path else "thinking"
     session.proactive_events.append({
         "eventType": "agent_state",
         "turn_index": session.turn_index,
         "turnId": f"turn_{session.turn_index:03d}",
         "caseVersion": session.case_version + 1,
-        "state": "checking" if image_path else "thinking",
+        "state": initial_agent_state,
         "deliverAt": started_at,
         "expiresAt": started_at + 30,
     })
@@ -354,6 +358,7 @@ def process_turn(
                     "communicationState": (
                         session.emotion_history[-1] if session.emotion_history else None
                     ),
+                    "interactionState": session.interaction_state or None,
                 }, ensure_ascii=False)
             if recorder:
                 recorder.record_context([
@@ -397,7 +402,10 @@ def process_turn(
         apply_focus_change(session, session.presentation, user_input, final_output)
         apply_live_plan(session, session.presentation)
         apply_emotion_state(session, session.presentation, user_input)
-        _apply_vision_result_view(session, session.presentation)
+        apply_waiting_and_proactive_state(session, session.presentation, user_input)
+        vision_reply = _apply_vision_result_view(session, session.presentation)
+        if vision_reply:
+            final_output = vision_reply
         conflict_reply = _apply_fact_conflict_view(session, session.presentation)
         if conflict_reply:
             final_output = conflict_reply
@@ -406,7 +414,7 @@ def process_turn(
         session.presentation["caseVersion"] = session.case_version
         proactive_messages = session.presentation.pop("proactiveMessages", [])
         agent_state = session.presentation.get("agentState")
-        if agent_state:
+        if agent_state and agent_state["emoji"] != initial_agent_state:
             session.proactive_events.append({
                 "eventType": "agent_state",
                 "turn_index": session.turn_index,
