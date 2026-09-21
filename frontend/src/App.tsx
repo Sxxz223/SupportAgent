@@ -127,6 +127,24 @@ export default function App() {
     return () => source.close();
   }, [sessionId, cancelProactive]);
 
+  useEffect(() => {
+    if (!sessionId) return;
+    const reportFocus = () => {
+      acceptProactive.current = true;
+      void reportActivity(sessionId, "focus").catch(() => undefined);
+    };
+    const reportLeave = () => {
+      cancelProactive();
+      void reportActivity(sessionId, "leave").catch(() => undefined);
+    };
+    window.addEventListener("focus", reportFocus);
+    window.addEventListener("blur", reportLeave);
+    return () => {
+      window.removeEventListener("focus", reportFocus);
+      window.removeEventListener("blur", reportLeave);
+    };
+  }, [sessionId, cancelProactive]);
+
   function applyResponse(response: ChatResponse) {
     if (typeof response.caseVersion === "number" && response.caseVersion < caseVersion.current) return;
     if (typeof response.caseVersion === "number") caseVersion.current = response.caseVersion;

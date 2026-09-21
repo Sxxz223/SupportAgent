@@ -312,7 +312,11 @@ def create_app(
         if session is None:
             raise HTTPException(status_code=404, detail="Support session not found")
         observe_activity(session, payload.activity, detail=payload.detail)
-        if payload.activity == "idle" and session.history:
+        should_decide = payload.activity == "idle" or (
+            payload.activity == "focus"
+            and float(session.behavior_state.get("secondsAway") or 0) >= 10
+        )
+        if should_decide and session.history:
             decision = request.app.state.behavior_decider(session, payload.activity)
             apply_behavior_decision(session, decision)
         request.app.state.session_store.save_session(session_id, session)

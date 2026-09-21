@@ -28,6 +28,7 @@ def _context(session, activity: str) -> str:
         "interactionStatus": session.interaction_state.get("status", "ready"),
         "previousProactiveCategory": session.behavior_state.get("lastProactiveCategory"),
         "proactiveCount": session.behavior_state.get("proactiveCount", 0),
+        "secondsAway": session.behavior_state.get("secondsAway"),
     }, ensure_ascii=False)
 
 

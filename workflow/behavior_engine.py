@@ -65,9 +65,14 @@ def apply_behavior_decision(session, decision: dict) -> None:
 def observe_activity(session, activity: str, *, detail: str | None = None) -> None:
     """Record a UI observation and decide whether the Agent should act."""
     state = session.behavior_state
+    now = time.time()
+    if activity == "focus" and state.get("leftAt"):
+        state["secondsAway"] = max(0, round(now - float(state["leftAt"]), 1))
+    elif activity == "leave":
+        state["leftAt"] = now
     state["activityVersion"] = int(state.get("activityVersion", 0)) + 1
     state["lastActivity"] = activity
-    state["lastActivityAt"] = time.time()
+    state["lastActivityAt"] = now
     if detail:
         state["lastActivityDetail"] = detail[:120]
     _remove_superseded(session)

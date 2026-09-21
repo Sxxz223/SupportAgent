@@ -1,6 +1,7 @@
 """Persistent observation and personified behavior tests."""
 import main
 import unittest
+from unittest.mock import patch
 
 from my_project.application.session import SupportSession
 from my_project.workflow.behavior_engine import apply_behavior_decision, event_is_current, observe_activity
@@ -54,6 +55,13 @@ class BehaviorEngineTests(unittest.TestCase):
         apply_behavior_decision(session, {"action": "stay_silent"})
         self.assertEqual(len(session.proactive_events), before)
         self.assertEqual(session.service_tasks, {})
+
+    @patch("my_project.workflow.behavior_engine.time.time", side_effect=[100.0, 115.5])
+    def test_leave_and_return_records_observed_away_time(self, _clock):
+        session = SupportSession()
+        observe_activity(session, "leave")
+        observe_activity(session, "focus")
+        self.assertEqual(session.behavior_state["secondsAway"], 15.5)
 
 
 if __name__ == "__main__":
