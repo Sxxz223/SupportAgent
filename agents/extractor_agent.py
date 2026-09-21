@@ -18,11 +18,20 @@ Use exactly this format:
   "phone_last4": null,
   "order_no": null,
   "product": null,
-  "issue": null
+  "issue": null,
+  "facts": {}
 }
 
 Rules:
 - Only extract information explicitly present in the user's message.
+- Put detailed service facts in `facts`. Each entry is {"value": ..., "kind": ...}.
+- Use short stable keys when relevant: target_device, symptom, onset_time, previous_state,
+  current_port, cable, power_reading, attempted_steps, attempt_results, environment,
+  safety_signals, desired_outcomes, constraints, user_judgement.
+- `kind` must be observation, context, action, result, goal, or judgement.
+- Observable descriptions such as "shows 20W" are observations. Customer conclusions such
+  as "the port is broken" are judgements and must not be treated as established causes.
+- Keep multiple attempted actions as a JSON list. Preserve informal customer wording in values.
 - Extract a standalone four-digit verification response as phone_last4.
 - Extract an order number when the user provides one.
 - Do not guess.
@@ -59,5 +68,6 @@ def extract_state_update(extractor_agent, user_input: str):
     print("order_no:", update.order_no)
     print("product:", update.product)
     print("issue:", update.issue)
+    print("facts:", update.facts)
     
     return update

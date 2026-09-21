@@ -1,0 +1,46 @@
+"""Structured Agent response contract tests."""
+import main
+import unittest
+
+from my_project.schemas.presentation import validate_presentation
+
+
+class PresentationContractTests(unittest.TestCase):
+    def test_valid_fields_are_normalized(self):
+        result = validate_presentation({
+            "taskDecision": {"type": "single"},
+            "taskUpdates": [{
+                "taskId": "charging", "name": "充电异常", "stage": "collecting",
+                "statusText": "正在确认接口",
+            }],
+            "interaction": {"type": "choice", "options": [{"label": "USB-C 1"}]},
+            "emotionState": {"state": "neutral", "trend": "stable"},
+        })
+        self.assertEqual(result["taskDecision"]["type"], "single")
+        self.assertEqual(result["taskUpdates"][0]["stage"], "collecting")
+        self.assertEqual(result["emotionState"]["state"], "neutral")
+
+    def test_invalid_optional_field_is_dropped_without_losing_valid_fields(self):
+        result = validate_presentation({
+            "taskDecision": {"type": "invented"},
+            "interaction": {"type": "choice", "options": [{"label": "继续"}]},
+        })
+        self.assertNotIn("taskDecision", result)
+        self.assertEqual(result["interaction"]["type"], "choice")
+
+    def test_invalid_plan_with_two_current_steps_is_rejected_by_turn_parser(self):
+        from my_project.application.turn_processor import _parse_agent_output
+        import json
+        reply, view = _parse_agent_output(json.dumps({
+            "reply": "继续排查。",
+            "plan": {"steps": [
+                {"id": "a", "title": "确认接口", "status": "current"},
+                {"id": "b", "title": "测试线材", "status": "current"},
+            ]},
+        }))
+        self.assertEqual(reply, "继续排查。")
+        self.assertNotIn("plan", view)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -116,6 +116,7 @@ def build_model_context(
         f"- warranty_status: {_format_value(state.warranty_status)}",
         f"- ticket_id: {_format_value(state.ticket_id)}",
         f"- attempted_steps: {state.attempted_steps}",
+        f"- diagnostic_facts: {state.diagnostic_facts}",
         f"- resolved: {state.resolved}",
         "",
         "Current Turn:",

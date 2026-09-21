@@ -60,6 +60,7 @@ Knowledge rules:
 Response format:
 - Return one valid JSON object and no surrounding prose.
 - `reply` is the concise customer-facing response.
+- `factsUpdate` contains only newly learned or corrected customer-service facts from this turn. Use short stable keys and JSON-safe values. Do not repeat unchanged facts and do not treat a customer diagnosis as an observed fact.
 - `taskDecision.type` is `single`, `propose_split`, `confirmed`, or `clarify`. Default to one task. Propose a split only when every candidate has (1) its own completion result, (2) a meaningfully different handling route, and (3) value in being tracked separately. Symptoms, background facts, attempted steps and steps inside one outcome are not tasks. Never create multiple formal tasks before the customer confirms a proposed split.
 - `taskUpdates` contains only changed formal tasks. Each has `taskId`, `name`, `stage`, and `statusText`. Stage must be one of `confirmed`, `collecting`, `information_ready`, `judgement_formed`, `solution_provided`, `waiting_confirmation`, or `completed`. Never return a numeric progress value.
 - A newly confirmed task that is waiting while another task is the current focus stays at `confirmed`; do not mark it `collecting` merely because it now exists.

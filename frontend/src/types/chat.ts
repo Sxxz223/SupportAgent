@@ -18,6 +18,7 @@ export type ChatResponse = {
   stage: string;
   turnId?: string;
   caseVersion?: number;
+  factsUpdate?: Record<string, unknown>;
   taskDecision?: { type: "single" | "propose_split" | "confirmed" | "clarify" };
   taskUpdates?: TaskUpdate[];
   focusTaskId?: string;

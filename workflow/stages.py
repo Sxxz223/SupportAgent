@@ -62,6 +62,14 @@ def apply_update(state: SupportState, update: StateUpdate):
     if update.issue is not None:
         state.issue = update.issue
 
+    for key, fact in update.facts.items():
+        state.diagnostic_facts[key] = fact.value
+        if key == "attempted_steps":
+            steps = fact.value if isinstance(fact.value, list) else [fact.value]
+            for step in steps:
+                if isinstance(step, str) and step not in state.attempted_steps:
+                    state.attempted_steps.append(step)
+
 def apply_vision_update(
     state: SupportState,
     update: VisionUpdate

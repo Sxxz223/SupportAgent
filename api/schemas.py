@@ -23,6 +23,7 @@ class ChatResponse(BaseModel):
     stage: str
     turnId: str | None = None
     caseVersion: int | None = None
+    factsUpdate: dict[str, Any] | None = None
     interaction: dict[str, Any] | None = None
     taskDecision: dict[str, Any] | None = None
     taskUpdates: list[dict[str, Any]] | None = None

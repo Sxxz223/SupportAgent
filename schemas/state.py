@@ -1,5 +1,11 @@
 from dataclasses import dataclass, field
-from pydantic import BaseModel
+from typing import Any, Literal
+from pydantic import BaseModel, Field
+
+
+class ExtractedFact(BaseModel):
+    value: Any
+    kind: Literal["observation", "context", "action", "result", "goal", "judgement"]
 
 class StateUpdate(BaseModel):
     """
@@ -10,6 +16,7 @@ class StateUpdate(BaseModel):
     order_no: str | None = None
     product: str | None = None
     issue: str | None = None
+    facts: dict[str, ExtractedFact] = Field(default_factory=dict)
 
 @dataclass
 class SupportState:

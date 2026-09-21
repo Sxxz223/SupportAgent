@@ -17,6 +17,7 @@ from ..trace.recorder import TraceRecorder, snapshot_state
 from ..vision.qwen import analyze_image_qwen
 from ..workflow.actions import decide_next_action
 from ..workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
+from ..schemas.presentation import validate_presentation
 
 MAX_AGENT_STEPS = 5
 TASK_DECISIONS = {"single", "clarify", "propose_split", "confirmed"}
@@ -32,6 +33,38 @@ AGENT_STATES = {"idle", "thinking", "checking", "investigating", "found", "insig
 PLAN_STATES = {"done", "current", "pending"}
 
 
+def _record_text_facts(session: SupportSession, update) -> None:
+    for key in ("user_name", "phone_last4", "order_no", "product", "issue"):
+        value = getattr(update, key, None)
+        if value is not None:
+            session.upsert_fact(key, value, "user_text", confirmed=False)
+    for key, fact in update.facts.items():
+        session.upsert_fact(
+            key, fact.value, "user_text", confirmed=False, kind=fact.kind,
+        )
+
+
+def _record_vision_facts(session: SupportSession, update) -> None:
+    for key in ("dock_visible", "indicator_on", "contacts_dirty", "robot_on_dock", "observation"):
+        value = getattr(update, key, None)
+        if value is not None:
+            session.upsert_fact(key, value, "image_analysis", confirmed=False)
+
+
+def _sync_confirmed_business_facts(session: SupportSession) -> None:
+    state = session.state
+    values = {
+        "customer_id": state.customer_id,
+        "identity_verified": state.identity_verified if state.identity_verified else None,
+        "product_id": state.product_id,
+        "warranty_status": state.warranty_status,
+        "ticket_id": state.ticket_id,
+    }
+    for key, value in values.items():
+        if value is not None:
+            session.upsert_fact(key, value, "business_system", confirmed=True)
+
+
 def _parse_agent_output(raw: str) -> tuple[str, dict]:
     """Separate customer copy from the Agent-owned UI description."""
     text = raw.strip()
@@ -43,34 +76,7 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
         return raw, {}
     if not isinstance(payload, dict) or not isinstance(payload.get("reply"), str):
         return raw, {}
-    presentation = {
-        key: payload[key] for key in (
-            "interaction", "taskDecision", "taskUpdates", "focusTaskId",
-            "focusChanged", "focusChangeReason", "focusPath", "plan", "agentState",
-            "emotionState", "visionResult",
-        )
-        if isinstance(payload.get(key), dict)
-        or isinstance(payload.get(key), list)
-    }
-    decision = presentation.get("taskDecision")
-    if decision and decision.get("type") not in TASK_DECISIONS:
-        presentation.pop("taskDecision", None)
-    interaction = presentation.get("interaction")
-    if interaction and interaction.get("type") not in INTERACTION_TYPES:
-        presentation.pop("interaction", None)
-    tasks = presentation.get("taskUpdates")
-    if tasks is not None:
-        presentation["taskUpdates"] = [
-            task for task in tasks
-            if isinstance(task, dict)
-            and isinstance(task.get("taskId"), str)
-            and isinstance(task.get("name"), str)
-            and task.get("stage") in TASK_STAGES
-            and isinstance(task.get("statusText"), str)
-        ]
-    agent_state = presentation.get("agentState")
-    if agent_state and agent_state.get("emoji") not in AGENT_STATES:
-        presentation.pop("agentState", None)
+    presentation = validate_presentation(payload)
     plan = presentation.get("plan")
     if plan:
         steps = plan.get("steps")
@@ -88,13 +94,12 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
                 presentation.pop("plan", None)
             else:
                 plan["steps"] = valid_steps
-    proactive = payload.get("proactiveMessages")
-    if isinstance(proactive, list):
-        presentation["proactiveMessages"] = [item for item in proactive if isinstance(item, dict)]
     return payload["reply"], presentation
 
 
 def _merge_service_view(session: SupportSession, presentation: dict, user_input: str) -> None:
+    for key, value in presentation.get("factsUpdate", {}).items():
+        session.upsert_fact(key, value, "agent_extraction", confirmed=False)
     decision_type = presentation.get("taskDecision", {}).get("type")
     if decision_type == "propose_split":
         session.pending_task_change = "split"
@@ -162,6 +167,7 @@ def process_turn(
         if recorder:
             recorder.record_extraction(update)
         apply_update(state, update)
+        _record_text_facts(session, update)
 
         if image_path:
             failed_stage = "vision"
@@ -172,6 +178,7 @@ def process_turn(
             vision_client = create_qwen_client()
             turn.vision_update = analyze_image_qwen(image_path, vision_client)
             apply_vision_update(state, turn.vision_update)
+            _record_vision_facts(session, turn.vision_update)
             try:
                 vision_after = snapshot_state(state) if recorder else {}
             except Exception:
@@ -240,8 +247,15 @@ def process_turn(
             turn.model_context = build_model_context(
                 state=state, turn=turn, events=session.events, history=session.history,
             )
-            if session.service_tasks:
+            if session.service_tasks or session.facts:
                 turn.model_context += "\n\nCurrent service workspace state:\n" + json.dumps({
+                    "facts": {
+                        key: {
+                            "value": fact.value, "source": fact.source,
+                            "confirmed": fact.confirmed, "kind": fact.kind,
+                        }
+                        for key, fact in session.facts.items()
+                    },
                     "tasks": list(session.service_tasks.values()),
                     "focusTaskId": session.focus_task_id,
                     "focusPath": session.focus_path,
@@ -284,6 +298,7 @@ def process_turn(
 
         if support_result is None:
             raise RuntimeError("Main Agent did not run")
+        _sync_confirmed_business_facts(session)
         final_output, session.presentation = _parse_agent_output(str(final_output))
         _merge_service_view(session, session.presentation, user_input)
         session.case_version += 1
