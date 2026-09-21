@@ -119,6 +119,7 @@ class ProactiveMessage(ContractModel):
     category: Literal["supplement", "explanation", "reassurance", "followup", "light_extension"]
     priority: int = Field(default=0, ge=0, le=3)
     expiresInSeconds: int = Field(default=10, ge=1, le=300)
+    delaySeconds: int = Field(default=3, ge=1, le=30)
 
 
 FIELD_ADAPTERS = {
@@ -146,6 +147,8 @@ def validate_presentation(payload: dict[str, Any]) -> dict[str, Any]:
         except ValidationError:
             continue
         clean[key] = adapter.dump_python(value, mode="json", exclude_none=True)
+        if key == "proactiveMessages":
+            clean[key] = clean[key][:1]
     if isinstance(payload.get("focusTaskId"), str):
         clean["focusTaskId"] = payload["focusTaskId"]
     if isinstance(payload.get("focusChanged"), bool):

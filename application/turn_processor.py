@@ -1,6 +1,7 @@
 """Coordinate one support turn using the existing domain modules."""
 import json
 import re
+import time
 
 from agents import Runner
 
@@ -20,6 +21,7 @@ from ..workflow.stages import apply_update, apply_vision_update, next_stage, get
 from ..schemas.presentation import validate_presentation
 from ..workflow.task_engine import apply_task_updates, confirm_task_change, propose_task_change
 from ..workflow.focus_engine import apply_focus_change, apply_live_plan
+from ..workflow.emotion_engine import apply_emotion_state
 
 MAX_AGENT_STEPS = 5
 TASK_DECISIONS = {"single", "clarify", "propose_split", "confirmed"}
@@ -209,6 +211,8 @@ def process_turn(
     action and tool values live only in the local TurnContext.
     """
     session.turn_index += 1
+    # A new customer action invalidates every unsent event from the previous turn.
+    session.proactive_events.clear()
     state = session.state
     resolved_conflict = session.resolve_fact_conflict(user_input)
     if resolved_conflict:
@@ -337,6 +341,9 @@ def process_turn(
                     "focusPath": session.focus_path,
                     "plan": session.focus_plan,
                     "visionRequest": session.vision_request,
+                    "communicationState": (
+                        session.emotion_history[-1] if session.emotion_history else None
+                    ),
                 }, ensure_ascii=False)
             if recorder:
                 recorder.record_context([
@@ -379,6 +386,7 @@ def process_turn(
         _merge_service_view(session, session.presentation, user_input)
         apply_focus_change(session, session.presentation, user_input, final_output)
         apply_live_plan(session, session.presentation)
+        apply_emotion_state(session, session.presentation, user_input)
         _apply_vision_result_view(session, session.presentation)
         conflict_reply = _apply_fact_conflict_view(session, session.presentation)
         if conflict_reply:
@@ -387,11 +395,28 @@ def process_turn(
         session.presentation["turnId"] = f"turn_{session.turn_index:03d}"
         session.presentation["caseVersion"] = session.case_version
         for message in session.presentation.pop("proactiveMessages", []):
+            delay = message.pop("delaySeconds", 3)
+            expires = message.get("expiresInSeconds", 10)
+            created_at = time.time()
             session.proactive_events.append({
+                "eventType": "proactive_message",
                 "turn_index": session.turn_index,
                 "turnId": session.presentation["turnId"],
                 "caseVersion": session.case_version,
+                "deliverAt": created_at + delay,
+                "expiresAt": created_at + delay + expires,
                 **message,
+            })
+        agent_state = session.presentation.get("agentState")
+        if agent_state:
+            session.proactive_events.insert(0, {
+                "eventType": "agent_state",
+                "turn_index": session.turn_index,
+                "turnId": session.presentation["turnId"],
+                "caseVersion": session.case_version,
+                "state": agent_state["emoji"],
+                "deliverAt": time.time(),
+                "expiresAt": time.time() + 10,
             })
         workflow_after_tools_action = decide_next_action(state)
         _, workflow_after_tools_names = get_allowed_tools(state)

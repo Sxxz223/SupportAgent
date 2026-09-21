@@ -5,6 +5,7 @@ import importlib.util
 import os
 import asyncio
 import json
+import time
 from collections.abc import Callable
 from tempfile import NamedTemporaryFile
 
@@ -328,12 +329,28 @@ def create_app(
         async def stream():
             while not await request.is_disconnected():
                 if session.proactive_events:
+                    now = time.time()
+                    session.proactive_events[:] = [
+                        item for item in session.proactive_events
+                        if item.get("expiresAt", now + 1) > now
+                    ]
+                    if not session.proactive_events:
+                        await asyncio.sleep(1)
+                        continue
+                    item = session.proactive_events[0]
+                    if item.get("deliverAt", 0) > now:
+                        await asyncio.sleep(0.25)
+                        continue
                     item = session.proactive_events.pop(0)
                     request.app.state.session_store.save_session(session_id, session)
-                    yield f"event: proactive_message\ndata: {json.dumps(item, ensure_ascii=False)}\n\n"
+                    event_type = item.pop("eventType", "proactive_message")
+                    item.pop("deliverAt", None)
+                    item.pop("expiresAt", None)
+                    item.pop("turn_index", None)
+                    yield f"event: {event_type}\ndata: {json.dumps(item, ensure_ascii=False)}\n\n"
                 else:
                     yield ": keep-alive\n\n"
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.25)
 
         return StreamingResponse(stream(), media_type="text/event-stream")
 

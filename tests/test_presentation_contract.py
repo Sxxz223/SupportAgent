@@ -6,6 +6,13 @@ from my_project.schemas.presentation import validate_presentation
 
 
 class PresentationContractTests(unittest.TestCase):
+    def test_only_one_proactive_message_can_enter_the_queue(self):
+        result = validate_presentation({"proactiveMessages": [
+            {"id": "first", "content": "一", "category": "supplement"},
+            {"id": "second", "content": "二", "category": "supplement"},
+        ]})
+        self.assertEqual([item["id"] for item in result["proactiveMessages"]], ["first"])
+
     def test_valid_fields_are_normalized(self):
         result = validate_presentation({
             "taskDecision": {"type": "single"},

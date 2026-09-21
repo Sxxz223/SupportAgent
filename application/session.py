@@ -27,6 +27,7 @@ class SupportSession:
     facts: dict[str, CaseFact] = field(default_factory=dict)
     presentation: dict[str, Any] = field(default_factory=dict)
     proactive_events: list[dict[str, Any]] = field(default_factory=list)
+    emotion_history: list[dict[str, Any]] = field(default_factory=list)
     service_tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
     task_history: list[dict[str, Any]] = field(default_factory=list)
     focus_task_id: str | None = None
@@ -153,6 +154,7 @@ class SupportSession:
             "pendingVisionFields": self.pending_vision_fields,
             "pendingReshootTarget": self.pending_reshoot_target,
             "proactiveEvents": self.proactive_events,
+            "emotionHistory": self.emotion_history,
         }
 
     def restore_case(self, snapshot: dict[str, Any]) -> None:
@@ -187,6 +189,7 @@ class SupportSession:
         self.pending_vision_fields = dict(snapshot.get("pendingVisionFields") or {})
         self.pending_reshoot_target = snapshot.get("pendingReshootTarget")
         self.proactive_events = list(snapshot.get("proactiveEvents") or [])
+        self.emotion_history = list(snapshot.get("emotionHistory") or [])
         self.presentation = {
             key: snapshot[key] for key in ("interaction", "emotionState", "agentState")
             if snapshot.get(key)

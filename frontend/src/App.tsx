@@ -19,6 +19,15 @@ const initialFocus: FocusPath = {
 };
 const SESSION_STORAGE_KEY = "anker-support-session";
 type Pending = { message: string; image: File | null };
+type PresenceState = keyof typeof presence;
+function normalizeAgentState(state?: string | null): PresenceState | null {
+  const aliases: Record<string, PresenceState | null> = {
+    checking: "investigating", found: "insight", completed: "done_step", idle: null,
+    thinking: "thinking", investigating: "investigating", insight: "insight",
+    done_step: "done_step", resolved: "resolved",
+  };
+  return state ? aliases[state] ?? null : null;
+}
 
 export default function App() {
   const [sessionId, setSessionId] = useState("");
@@ -30,14 +39,15 @@ export default function App() {
     { id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" },
   ]);
   const [interaction, setInteraction] = useState<Interaction>({ type: "text" });
-  const [agentState, setAgentState] = useState<keyof typeof presence | null>(null);
+  const [agentState, setAgentState] = useState<PresenceState | null>(null);
   const [visionResult, setVisionResult] = useState<ChatResponse["visionResult"]>();
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<Pending | null>(null);
   const requestVersion = useRef(0);
-  const proactiveTimer = useRef<number | null>(null);
   const lastProactiveAt = useRef(0);
+  const proactiveIds = useRef(new Set<string>());
+  const acceptProactive = useRef(true);
   const caseVersion = useRef(0);
   const currentTurnId = useRef("");
   const messageEnd = useRef<HTMLDivElement>(null);
@@ -48,8 +58,8 @@ export default function App() {
   const canUpload = Boolean(interaction.image?.enabled || interaction.type === "partial_reshoot");
 
   const cancelProactive = useCallback(() => {
-    if (proactiveTimer.current !== null) window.clearTimeout(proactiveTimer.current);
-    proactiveTimer.current = null;
+    proactiveIds.current.clear();
+    acceptProactive.current = false;
   }, []);
 
   const connect = useCallback(async () => {
@@ -68,7 +78,8 @@ export default function App() {
             setTasks(restoredTasks); setFocusTaskId(restored.focusTaskId ?? "");
             setFocusPath(restored.focusPath ?? initialFocus); setPlan(restored.plan ?? { steps: [] });
             setInteraction(restored.interaction ?? { type: "text" });
-            setAgentState(restored.agentState?.emoji ?? null);
+            setAgentState(normalizeAgentState(restored.agentState?.emoji));
+            acceptProactive.current = true;
             caseVersion.current = restored.caseVersion ?? 0; currentTurnId.current = restored.turnId ?? "";
           }
           return;
@@ -93,20 +104,18 @@ export default function App() {
     const source = new EventSource(getSessionEventsUrl(sessionId));
     source.addEventListener("proactive_message", (event) => {
       const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number; turnId?: string; caseVersion?: number };
-      if ((data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
-      if (!data.content || Date.now() - lastProactiveAt.current < 8000) return;
-      cancelProactive();
-      proactiveTimer.current = window.setTimeout(() => {
-        setMessages((current) => [...current, { id: data.id ?? crypto.randomUUID(), role: "proactive", content: data.content! }]);
-        lastProactiveAt.current = Date.now();
-      }, Math.min((data.expiresInSeconds ?? 2) * 500, 1800));
+      if (!acceptProactive.current || (data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
+      const id = data.id ?? crypto.randomUUID();
+      if (!data.content || proactiveIds.current.has(id) || Date.now() - lastProactiveAt.current < 8000) return;
+      proactiveIds.current.add(id);
+      setMessages((current) => [...current, { id, role: "proactive", content: data.content! }]);
+      lastProactiveAt.current = Date.now();
     });
     source.addEventListener("agent_state", (event) => {
       const data = JSON.parse((event as MessageEvent).data) as { state?: string; turnId?: string; caseVersion?: number };
       if ((data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
-      const aliases = { checking: "investigating", found: "insight", completed: "done_step", idle: null } as const;
-      const state = data.state && data.state in aliases ? aliases[data.state as keyof typeof aliases] : data.state;
-      if (state === null || state === "thinking" || state === "investigating" || state === "insight" || state === "done_step" || state === "resolved") setAgentState(state);
+      if (!acceptProactive.current) return;
+      setAgentState(normalizeAgentState(data.state));
     });
     return () => source.close();
   }, [sessionId, cancelProactive]);
@@ -127,7 +136,8 @@ export default function App() {
     if (response.focusPath) setFocusPath(response.focusPath);
     if (response.plan) setPlan(response.plan);
     setInteraction(response.interaction ?? { type: "text" });
-    setAgentState(response.agentState?.emoji ?? null);
+    setAgentState(normalizeAgentState(response.agentState?.emoji));
+    acceptProactive.current = true;
     setVisionResult(response.visionResult);
   }
 
