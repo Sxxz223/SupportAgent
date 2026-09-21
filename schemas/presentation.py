@@ -114,7 +114,10 @@ class EmotionState(ContractModel):
 class ProactiveMessage(ContractModel):
     id: str = Field(min_length=1)
     content: str = Field(min_length=1)
-    category: Literal["supplement", "explanation", "reassurance", "followup", "light_extension"]
+    category: Literal[
+        "supplement", "explanation", "reassurance", "encouragement",
+        "followup", "reminder", "offer_help", "small_talk", "light_extension",
+    ]
     priority: int = Field(default=0, ge=0, le=3)
     expiresInSeconds: int = Field(default=10, ge=1, le=300)
     delaySeconds: int = Field(default=3, ge=1, le=30)
@@ -147,7 +150,15 @@ def validate_presentation(payload: dict[str, Any]) -> dict[str, Any]:
             continue
         clean[key] = adapter.dump_python(value, mode="json", exclude_none=True)
         if key == "proactiveMessages":
-            clean[key] = clean[key][:1]
+            # One model call may plan a short, paced sequence. Keep it bounded,
+            # ordered, and far enough apart to feel conversational.
+            sequence = sorted(clean[key][:4], key=lambda item: item["delaySeconds"])
+            previous_delay: int | None = None
+            for item in sequence:
+                if previous_delay is not None:
+                    item["delaySeconds"] = max(item["delaySeconds"], previous_delay + 4)
+                previous_delay = item["delaySeconds"]
+            clean[key] = sequence
     if isinstance(payload.get("focusTaskId"), str):
         clean["focusTaskId"] = payload["focusTaskId"]
     if isinstance(payload.get("focusChanged"), bool):

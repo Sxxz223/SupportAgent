@@ -6,12 +6,20 @@ from my_project.schemas.presentation import validate_presentation
 
 
 class PresentationContractTests(unittest.TestCase):
-    def test_only_one_proactive_message_can_enter_the_queue(self):
+    def test_a_bounded_timed_proactive_sequence_can_enter_the_queue(self):
         result = validate_presentation({"proactiveMessages": [
-            {"id": "first", "content": "一", "category": "supplement"},
-            {"id": "second", "content": "二", "category": "supplement"},
+            {"id": "late", "content": "稍后追问", "category": "followup", "delaySeconds": 8},
+            {"id": "first", "content": "先补充", "category": "supplement", "delaySeconds": 2},
+            {"id": "middle", "content": "再安慰", "category": "reassurance", "delaySeconds": 3},
+            {"id": "fourth", "content": "轻松一下", "category": "light_extension", "delaySeconds": 9},
+            {"id": "discarded", "content": "超出上限", "category": "supplement", "delaySeconds": 20},
         ]})
-        self.assertEqual([item["id"] for item in result["proactiveMessages"]], ["first"])
+        self.assertEqual(
+            [item["id"] for item in result["proactiveMessages"]],
+            ["first", "middle", "late", "fourth"],
+        )
+        delays = [item["delaySeconds"] for item in result["proactiveMessages"]]
+        self.assertEqual(delays, [2, 6, 10, 14])
 
     def test_valid_fields_are_normalized(self):
         result = validate_presentation({

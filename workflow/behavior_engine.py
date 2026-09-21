@@ -20,7 +20,8 @@ def _identity(session) -> tuple[str, int]:
 def _remove_superseded(session) -> None:
     session.proactive_events[:] = [
         event for event in session.proactive_events
-        if event.get("source") != "behavior_engine"
+        if event.get("eventType") not in {"proactive_message", "interaction_update"}
+        and event.get("source") != "behavior_engine"
     ]
 
 

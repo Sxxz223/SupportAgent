@@ -29,6 +29,15 @@ class BehaviorEngineTests(unittest.TestCase):
         self.assertEqual(session.proactive_events, [])
         self.assertFalse(event_is_current(session, old))
 
+    def test_new_user_reaction_cancels_all_remaining_planned_messages(self):
+        session = SupportSession(proactive_events=[
+            {"eventType": "agent_state", "id": "presence"},
+            {"eventType": "proactive_message", "id": "planned-1"},
+            {"eventType": "interaction_update", "id": "planned-action"},
+        ])
+        observe_activity(session, "choice", detail="selected")
+        self.assertEqual([item.get("id") for item in session.proactive_events], ["presence"])
+
     def test_image_selection_gets_contextual_acknowledgement(self):
         session = SupportSession()
         observe_activity(session, "image_selected")

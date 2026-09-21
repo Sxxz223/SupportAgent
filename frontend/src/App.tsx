@@ -109,7 +109,7 @@ export default function App() {
       const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number; turnId?: string; caseVersion?: number; agentState?: AgentPresence };
       if (!acceptProactive.current || (data.caseVersion ?? 0) < caseVersion.current || (currentTurnId.current && data.turnId && data.turnId !== currentTurnId.current)) return;
       const id = data.id ?? crypto.randomUUID();
-      if (!data.content || proactiveIds.current.has(id) || Date.now() - lastProactiveAt.current < 8000) return;
+      if (!data.content || proactiveIds.current.has(id) || Date.now() - lastProactiveAt.current < 1200) return;
       proactiveIds.current.add(id);
       const messagePresence = normalizeAgentState(data.agentState ?? agentState);
       setMessages((current) => [...current, { id, role: "proactive", content: data.content!, agentState: messagePresence }]);
