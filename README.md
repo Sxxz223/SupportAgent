@@ -2,58 +2,58 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-## 快速开始
+## Quick Start
 
-### 1. 克隆项目
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Sxxz223/SupportAgent.git
 cd SupportAgent
 ```
 
-### 2. 创建并激活虚拟环境
+### 2. Create and activate a virtual environment
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. 安装后端依赖
+### 3. Install backend dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-首次运行时会自动下载 embedding 模型。
+The embedding model is downloaded automatically on first use.
 
-### 4. 配置 API Key
+### 4. Configure API keys
 
 ```bash
 cp .env.example .env
 ```
 
-编辑项目根目录的 `.env`，填写自己的 Provider 凭据：
+Edit `.env` in the repository root and add your provider credentials:
 
 ```dotenv
 DEEPSEEK_API_KEY=
 DASHSCOPE_API_KEY=
 ```
 
-后端会自动加载项目根目录的 `.env`，无需手动执行 `export` 或 `source`。已存在的 Shell 环境变量优先于 `.env` 中的值。
+The backend automatically loads `.env` from the repository root. You do not need to export the variables or source the file manually. Existing shell environment variables take precedence over values in `.env`.
 
-### 5. 启动后端
+### 5. Start the backend
 
-在项目根目录运行：
+Run the following command from the repository root:
 
 ```bash
 uvicorn api.app:app --reload
 ```
 
-API 地址为 `http://127.0.0.1:8000`，Swagger UI 地址为 `http://127.0.0.1:8000/docs`。
+The API is available at `http://127.0.0.1:8000`, and Swagger UI is available at `http://127.0.0.1:8000/docs`.
 
-### 6. 启动前端
+### 6. Start the frontend
 
-新开一个终端，在项目根目录运行：
+Open another terminal and run the following commands from the repository root:
 
 ```bash
 cd frontend
@@ -61,22 +61,21 @@ npm install
 npm run dev
 ```
 
-打开 `http://localhost:5173` 使用客服聊天，或访问 `http://localhost:5173/admin` 使用演示客户管理界面。
+Open `http://localhost:5173` for customer support chat, or visit `http://localhost:5173/admin` for the demo customer administration interface.
 
-### 7. 运行 Evaluation
+### 7. Run evaluations
 
-在项目根目录运行全部评估用例并生成 JSON 报告：
+Run all evaluation cases and generate a JSON report:
 
 ```bash
 .venv/bin/python -m evaluation.cli --all --json evaluation_results.json
 ```
 
-随后可打开 `http://127.0.0.1:8000/docs`，通过 Evaluation 相关接口查看报告。
+You can then open `http://127.0.0.1:8000/docs` and use the Evaluation endpoints to inspect the report.
 
 ---
 
 ## Project Overview
-
 
 A product-aware multimodal customer support agent with deterministic workflow orchestration, identity verification, RAG, tool calling, persistent customer data, vision understanding, and evaluation tracing.
 
