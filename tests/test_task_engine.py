@@ -11,6 +11,21 @@ def task(task_id, stage, status="状态"):
 
 
 class TaskEngineTests(unittest.TestCase):
+    def test_natural_confirmation_sentence_can_complete_but_negative_cannot(self):
+        session = SupportSession(service_tasks={"charging": task("charging", "waiting_confirmation")})
+        applied = apply_task_updates(session, [{
+            "taskId": "charging", "name": "充电异常", "stage": "completed",
+            "statusText": "已解决",
+        }], "我确认这个问题已经解决了", False)
+        self.assertEqual(applied[0]["stage"], "completed")
+
+        session = SupportSession(service_tasks={"charging": task("charging", "waiting_confirmation")})
+        applied = apply_task_updates(session, [{
+            "taskId": "charging", "name": "充电异常", "stage": "completed",
+            "statusText": "已解决",
+        }], "这个问题还是没有解决", False)
+        self.assertEqual(applied[0]["stage"], "waiting_confirmation")
+
     def test_unknown_task_is_blocked_without_confirmation(self):
         session = SupportSession(service_tasks={"a": task("a", "collecting")})
         applied = apply_task_updates(session, [task("b", "confirmed")], "继续", False)

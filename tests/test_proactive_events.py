@@ -32,8 +32,16 @@ class ProactiveEventTests(unittest.TestCase):
 
         process_turn(session, "我有点着急")
 
-        self.assertEqual([item["eventType"] for item in session.proactive_events], ["agent_state", "proactive_message"])
-        message = session.proactive_events[1]
+        self.assertEqual(
+            [item["eventType"] for item in session.proactive_events],
+            ["agent_state", "agent_state", "proactive_message"],
+        )
+        self.assertEqual(session.proactive_events[0]["state"], "thinking")
+        self.assertEqual(
+            [item.get("state") for item in session.proactive_events[:2]],
+            ["thinking", "thinking"],
+        )
+        message = session.proactive_events[2]
         self.assertEqual(message["turnId"], "turn_001")
         self.assertEqual(message["caseVersion"], 1)
         self.assertGreater(message["deliverAt"], time.time())
@@ -45,7 +53,8 @@ class ProactiveEventTests(unittest.TestCase):
         with patch("my_project.application.turn_processor.create_deepseek_model", side_effect=RuntimeError("stop")):
             with self.assertRaises(RuntimeError):
                 process_turn(session, "新的输入")
-        self.assertEqual(session.proactive_events, [])
+        self.assertNotIn("old", [item.get("id") for item in session.proactive_events])
+        self.assertEqual(session.proactive_events[0]["state"], "thinking")
 
 
 if __name__ == "__main__":

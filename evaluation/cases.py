@@ -341,9 +341,6 @@ EVALUATION_CASES: tuple[EvaluationCase, ...] = (
             expected_stage="understand_issue",
             answer_requirements=AnswerRequirements(must_not_claim=("your Anker Prime Charger (250W, 6 Ports, GaNPrime)",)),
         ),
-        expected_pass=False,
-        known_limitation=True,
-        notes="Current extractor behavior and stale-context handling need evaluation before this can be a required pass.",
     ),
 )
 

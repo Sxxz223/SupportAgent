@@ -113,8 +113,9 @@ export default function App() {
     });
     source.addEventListener("agent_state", (event) => {
       const data = JSON.parse((event as MessageEvent).data) as { state?: string; turnId?: string; caseVersion?: number };
-      if ((data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
-      if (!acceptProactive.current) return;
+      const version = data.caseVersion ?? 0;
+      if (version < caseVersion.current || version > caseVersion.current + 1) return;
+      if (version === caseVersion.current && data.turnId && data.turnId !== currentTurnId.current) return;
       setAgentState(normalizeAgentState(data.state));
     });
     return () => source.close();

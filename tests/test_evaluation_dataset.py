@@ -100,11 +100,9 @@ class EvaluationDatasetTests(unittest.TestCase):
         self.assertEqual(bob.expected_stage, "verify_identity")
         self.assertEqual(bob.expected_allowed_tools_before_agent, ("verify_customer",))
 
-    def test_known_limitation_is_explicitly_expected_to_fail(self):
+    def test_dataset_has_no_accepted_known_limitations(self):
         limitations = [case for case in EVALUATION_CASES if case.known_limitation]
-        self.assertEqual([case.id for case in limitations], ["case_15"])
-        self.assertTrue(all(not case.expected_pass for case in limitations))
-        self.assertTrue(all(case.notes for case in limitations))
+        self.assertEqual(limitations, [])
 
     def test_answer_requirements_are_behavior_cues_not_exact_answers(self):
         expectation_fields = {item.name for item in fields(EvaluationExpectations)}

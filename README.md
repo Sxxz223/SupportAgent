@@ -253,7 +253,9 @@ Open `http://localhost:5173` for chat or `http://localhost:5173/admin` for the d
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/health` | Service health check |
-| `POST` | `/session` | Create an in-memory support Session |
+| `POST` | `/session` | Create a persistent support case |
+| `GET` | `/session/{session_id}` | Restore a support case and its visible history |
+| `GET` | `/session/{session_id}/events` | Stream proactive messages and Agent-state events over SSE |
 | `POST` | `/chat` | Send a text turn |
 | `POST` | `/chat/multimodal` | Send text and one PNG, JPEG, or WebP image |
 | `GET/POST/PATCH/DELETE` | `/admin/...` | Demo customer and order operations |
@@ -264,7 +266,7 @@ See `/docs` for the generated OpenAPI documentation.
 
 ## Frontend
 
-The frontend uses React, TypeScript, and Vite. It creates one backend Session per page lifetime and keeps display messages separate from backend business State. The chat supports Markdown responses, one-image upload, loading and error states, and a Gradient Waves background that transitions between idle and thinking states. Responses use ordinary non-streaming HTTP requests.
+The frontend uses React, TypeScript, and Vite. It restores the current case after a refresh, keeps the formal action panel visible, and renders Agent-owned task, path, image, emotion, and presence state. Formal turns use HTTP requests; proactive messages and Agent-state changes arrive through SSE with turn/version validation, expiry, deduplication, and user-action cancellation.
 
 The `/admin` route is a demo operations interface for customer CRUD and order/product-ownership CRUD, including phone verification data, purchase dates, warranty dates, and order status. It is not a production administration system.
 
@@ -284,10 +286,9 @@ Backend tests mock external model transport where needed. Passing offline tests 
 
 ## Known Limitations
 
-- Support Sessions are stored in memory and disappear when the API process restarts.
 - SQLite and the admin interface are intended for local demonstration, without production authentication or RBAC.
 - The API has no authentication, rate limiting, distributed locking, or production deployment configuration.
-- Chat responses are non-streaming; there is no WebSocket transport or background task queue.
+- Formal chat responses are non-streaming; proactive communication uses SSE without a distributed background task queue.
 - Vision and language behavior depend on external Qwen and DeepSeek APIs.
 - The local product catalog, knowledge base, and evaluation dataset are intentionally small.
 - Tickets use a demo in-process repository rather than an external support system.
@@ -295,7 +296,7 @@ Backend tests mock external model transport where needed. Passing offline tests 
 
 ## Future Work
 
-- Persistent or distributed Session storage
+- Distributed Session storage
 - Production database, authentication, and RBAC
 - Streaming responses and human handoff
 - Retrieval reranking and a larger evaluation dataset

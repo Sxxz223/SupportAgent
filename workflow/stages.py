@@ -51,7 +51,21 @@ def apply_update(state: SupportState, update: StateUpdate):
 
     if update.product is not None:
         catalog_product = resolve_product(update.product)
-        state.product = catalog_product.display_name if catalog_product else update.product
+        next_product = catalog_product.display_name if catalog_product else update.product
+        if state.product is not None and next_product.casefold() != state.product.casefold():
+            # Product-specific diagnosis and fulfilment cannot survive a product correction.
+            state.issue = None
+            state.attempted_steps = []
+            state.resolved = False
+            state.diagnostic_facts = {}
+            state.warranty_status = None
+            state.ticket_id = None
+            state.image_received = False
+            state.dock_visible = None
+            state.indicator_on = None
+            state.contacts_dirty = None
+            state.robot_on_dock = None
+        state.product = next_product
         state.product_id = catalog_product.product_id if catalog_product else None
     elif state.product is not None and state.product_id is None:
         catalog_product = resolve_product(state.product)

@@ -213,6 +213,16 @@ def process_turn(
     session.turn_index += 1
     # A new customer action invalidates every unsent event from the previous turn.
     session.proactive_events.clear()
+    started_at = time.time()
+    session.proactive_events.append({
+        "eventType": "agent_state",
+        "turn_index": session.turn_index,
+        "turnId": f"turn_{session.turn_index:03d}",
+        "caseVersion": session.case_version + 1,
+        "state": "checking" if image_path else "thinking",
+        "deliverAt": started_at,
+        "expiresAt": started_at + 30,
+    })
     state = session.state
     resolved_conflict = session.resolve_fact_conflict(user_input)
     if resolved_conflict:
@@ -297,7 +307,7 @@ def process_turn(
 
         support_result = None
         for step_index in range(1, MAX_AGENT_STEPS + 1):
-            if state.stage == "diagnose" and not turn.retrieved_knowledge:
+            if state.product and state.issue and not turn.retrieved_knowledge:
                 failed_stage = "rag_retrieval"
                 embedding_model = create_embedding_model()
                 query = f"{state.product} {state.issue}"
@@ -394,7 +404,19 @@ def process_turn(
         session.case_version += 1
         session.presentation["turnId"] = f"turn_{session.turn_index:03d}"
         session.presentation["caseVersion"] = session.case_version
-        for message in session.presentation.pop("proactiveMessages", []):
+        proactive_messages = session.presentation.pop("proactiveMessages", [])
+        agent_state = session.presentation.get("agentState")
+        if agent_state:
+            session.proactive_events.append({
+                "eventType": "agent_state",
+                "turn_index": session.turn_index,
+                "turnId": session.presentation["turnId"],
+                "caseVersion": session.case_version,
+                "state": agent_state["emoji"],
+                "deliverAt": time.time(),
+                "expiresAt": time.time() + 10,
+            })
+        for message in proactive_messages:
             delay = message.pop("delaySeconds", 3)
             expires = message.get("expiresInSeconds", 10)
             created_at = time.time()
@@ -406,17 +428,6 @@ def process_turn(
                 "deliverAt": created_at + delay,
                 "expiresAt": created_at + delay + expires,
                 **message,
-            })
-        agent_state = session.presentation.get("agentState")
-        if agent_state:
-            session.proactive_events.insert(0, {
-                "eventType": "agent_state",
-                "turn_index": session.turn_index,
-                "turnId": session.presentation["turnId"],
-                "caseVersion": session.case_version,
-                "state": agent_state["emoji"],
-                "deliverAt": time.time(),
-                "expiresAt": time.time() + 10,
             })
         workflow_after_tools_action = decide_next_action(state)
         _, workflow_after_tools_names = get_allowed_tools(state)

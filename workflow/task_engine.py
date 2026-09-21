@@ -15,6 +15,8 @@ STAGE_ORDER = {
 COMPLETION_INPUTS = {
     "已经解决", "问题已解决", "确认解决", "可以结束", "solved", "resolved",
 }
+COMPLETION_PHRASES = ("已经解决", "确认解决", "解决了", "恢复正常", "可以结束")
+NEGATIVE_COMPLETION_PHRASES = ("没有解决", "没解决", "未解决", "仍然存在", "还是不行", "没有恢复")
 
 
 def _record(session, action: str, task_id: str, **details: Any) -> None:
@@ -29,7 +31,13 @@ def _record(session, action: str, task_id: str, **details: Any) -> None:
 
 def _completion_confirmed(user_input: str, task_id: str) -> bool:
     normalized = user_input.strip().casefold()
-    return normalized in COMPLETION_INPUTS or normalized == f"task_complete:{task_id}".casefold()
+    if any(phrase in normalized for phrase in NEGATIVE_COMPLETION_PHRASES):
+        return False
+    return (
+        normalized in COMPLETION_INPUTS
+        or normalized == f"task_complete:{task_id}".casefold()
+        or any(phrase in normalized for phrase in COMPLETION_PHRASES)
+    )
 
 
 def _normalize_transition(session, update: dict, user_input: str) -> dict | None:
