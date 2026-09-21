@@ -29,6 +29,13 @@ class SupportSession:
     proactive_events: list[dict[str, Any]] = field(default_factory=list)
     emotion_history: list[dict[str, Any]] = field(default_factory=list)
     interaction_state: dict[str, Any] = field(default_factory=dict)
+    behavior_state: dict[str, Any] = field(default_factory=lambda: {
+        "activityVersion": 0,
+        "introductionShown": False,
+        "lastActivity": "session_created",
+        "lastProactiveCategory": None,
+        "proactiveCount": 0,
+    })
     service_tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
     task_history: list[dict[str, Any]] = field(default_factory=list)
     focus_task_id: str | None = None
@@ -157,6 +164,7 @@ class SupportSession:
             "proactiveEvents": self.proactive_events,
             "emotionHistory": self.emotion_history,
             "interactionState": self.interaction_state,
+            "behaviorState": self.behavior_state,
         }
 
     def restore_case(self, snapshot: dict[str, Any]) -> None:
@@ -193,6 +201,11 @@ class SupportSession:
         self.proactive_events = list(snapshot.get("proactiveEvents") or [])
         self.emotion_history = list(snapshot.get("emotionHistory") or [])
         self.interaction_state = dict(snapshot.get("interactionState") or {})
+        self.behavior_state = dict(snapshot.get("behaviorState") or {
+            "activityVersion": 0, "introductionShown": False,
+            "lastActivity": "session_created", "lastProactiveCategory": None,
+            "proactiveCount": 0,
+        })
         self.presentation = {
             key: snapshot[key] for key in ("interaction", "emotionState", "agentState")
             if snapshot.get(key)

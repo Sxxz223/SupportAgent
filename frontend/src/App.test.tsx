@@ -2,11 +2,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { createSession, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
+import { createSession, reportActivity, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
 
 vi.mock("./api/client", () => ({
   createSession: vi.fn(), sendMessage: vi.fn(), sendMultimodalMessage: vi.fn(),
   resumeSession: vi.fn(),
+  reportActivity: vi.fn(() => Promise.resolve()),
   getSessionEventsUrl: vi.fn(() => "http://events"),
 }));
 class EventSourceStub {
@@ -26,12 +27,14 @@ const createSessionMock = vi.mocked(createSession);
 const resumeSessionMock = vi.mocked(resumeSession);
 const sendMessageMock = vi.mocked(sendMessage);
 const sendImageMock = vi.mocked(sendMultimodalMessage);
+const reportActivityMock = vi.mocked(reportActivity);
 
 describe("service workspace", () => {
   beforeEach(() => {
     createSessionMock.mockReset().mockResolvedValue("session-1");
     resumeSessionMock.mockReset(); window.localStorage.clear();
     sendMessageMock.mockReset(); sendImageMock.mockReset();
+    reportActivityMock.mockReset().mockResolvedValue(undefined);
     EventSourceStub.latest = null;
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:preview");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);

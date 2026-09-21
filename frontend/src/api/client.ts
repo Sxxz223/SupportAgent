@@ -16,6 +16,16 @@ export function getSessionEventsUrl(sessionId: string): string {
   return `${API_BASE_URL}/session/${encodeURIComponent(sessionId)}/events`;
 }
 
+export function reportActivity(
+  sessionId: string,
+  activity: "typing" | "idle" | "choice" | "image_selected" | "focus" | "leave",
+  detail?: string,
+): Promise<void> {
+  return request<void>(`/session/${encodeURIComponent(sessionId)}/activity`, {
+    method: "POST", body: JSON.stringify({ activity, detail }),
+  });
+}
+
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const headers = new Headers(init.headers);
   if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {

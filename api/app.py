@@ -56,6 +56,7 @@ from fastapi.responses import StreamingResponse
 
 from my_project.api.schemas import (
     ChatRequest,
+    ActivityRequest,
     ChatResponse,
     CustomerCreateRequest,
     CustomerDetailResponse,
@@ -72,6 +73,9 @@ from my_project.api.schemas import (
 from my_project.api.session_store import InMemorySessionStore, SQLiteSessionStore
 from my_project.application.session import SupportSession
 from my_project.application.turn_processor import process_turn
+from my_project.workflow.behavior_engine import event_is_current, observe_activity
+from my_project.workflow.behavior_engine import apply_behavior_decision
+from my_project.agents.persona_agent import decide_personified_behavior
 from my_project.evaluation.report_reader import (
     DEFAULT_REPORT_PATH,
     EvaluationReportNotFoundError,
@@ -152,6 +156,7 @@ def create_app(
     turn_processor: TurnProcessor = process_turn,
     evaluation_report_path: str | Path = DEFAULT_REPORT_PATH,
     customer_service: CustomerService | None = None,
+    behavior_decider=decide_personified_behavior,
 ) -> FastAPI:
     """Create an API instance with explicit in-memory dependencies."""
     api = FastAPI(title="Support Agent API")
@@ -159,6 +164,7 @@ def create_app(
     api.state.turn_processor = turn_processor
     api.state.evaluation_report_path = Path(evaluation_report_path)
     api.state.customer_service = customer_service or get_customer_service()
+    api.state.behavior_decider = behavior_decider
 
     api.add_middleware(
         CORSMiddleware,
@@ -295,7 +301,21 @@ def create_app(
     @api.post("/session", response_model=SessionResponse)
     def create_session(request: Request) -> SessionResponse:
         session_id = request.app.state.session_store.create_session()
+        session = request.app.state.session_store.get_session(session_id)
+        observe_activity(session, "session_created")
+        request.app.state.session_store.save_session(session_id, session)
         return SessionResponse(session_id=session_id)
+
+    @api.post("/session/{session_id}/activity", status_code=204)
+    def session_activity(session_id: str, payload: ActivityRequest, request: Request) -> None:
+        session = request.app.state.session_store.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="Support session not found")
+        observe_activity(session, payload.activity, detail=payload.detail)
+        if payload.activity == "idle" and session.history:
+            decision = request.app.state.behavior_decider(session, payload.activity)
+            apply_behavior_decision(session, decision)
+        request.app.state.session_store.save_session(session_id, session)
 
     @api.get("/session/{session_id}", response_model=SessionRestoreResponse, response_model_exclude_none=True)
     def restore_session(session_id: str, request: Request) -> SessionRestoreResponse:
@@ -342,10 +362,23 @@ def create_app(
                         await asyncio.sleep(1)
                         continue
                     item = session.proactive_events[0]
+                    if not event_is_current(session, item):
+                        session.proactive_events.pop(0)
+                        request.app.state.session_store.save_session(session_id, session)
+                        continue
                     if item.get("deliverAt", 0) > now:
                         await asyncio.sleep(0.25)
                         continue
                     item = session.proactive_events.pop(0)
+                    if item.get("category") == "introduction":
+                        session.behavior_state["introductionShown"] = True
+                    if item.get("eventType") == "proactive_message" and item.get("content"):
+                        session.history.append({
+                            "turn_index": session.turn_index,
+                            "role": "proactive",
+                            "content": item["content"],
+                            **({"agentState": item["agentState"]} if item.get("agentState") else {}),
+                        })
                     request.app.state.session_store.save_session(session_id, session)
                     event_type = item.pop("eventType", "proactive_message")
                     item.pop("deliverAt", None)

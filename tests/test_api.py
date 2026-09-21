@@ -67,6 +67,37 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(str(UUID(session_id)), session_id)
         self.assertIsNotNone(self.store.get_session(session_id))
 
+    def test_typing_activity_cancels_the_scheduled_introduction(self):
+        session_id = self.create_session()
+        session = self.store.get_session(session_id)
+        self.assertTrue(session.proactive_events)
+        response = self.client.post(
+            f"/session/{session_id}/activity", json={"activity": "typing"}
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(session.proactive_events, [])
+
+    def test_idle_activity_uses_persona_decider_after_conversation(self):
+        decisions = []
+
+        def decide(session, activity):
+            decisions.append((session, activity))
+            return {"action": "small_talk", "content": "我还在这儿，慢慢来。",
+                    "emoji": "🌿", "label": "轻松陪着你"}
+
+        store = InMemorySessionStore()
+        client = TestClient(create_app(store, FakeTurnProcessor(), behavior_decider=decide))
+        session_id = client.post("/session").json()["session_id"]
+        client.post("/chat", json={"session_id": session_id, "message": "hello"})
+        response = client.post(
+            f"/session/{session_id}/activity", json={"activity": "idle"}
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(decisions[0][1], "idle")
+        session = store.get_session(session_id)
+        self.assertEqual(session.proactive_events[1]["category"], "small_talk")
+        self.assertEqual(session.proactive_events[1]["content"], "我还在这儿，慢慢来。")
+
     def test_chat_calls_process_turn_with_matching_session(self):
         session_id = self.create_session()
         session = self.store.get_session(session_id)

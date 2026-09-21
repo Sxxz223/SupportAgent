@@ -33,6 +33,11 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
 
 
+class ActivityRequest(BaseModel):
+    activity: Literal["typing", "idle", "choice", "image_selected", "focus", "leave"]
+    detail: str | None = Field(default=None, max_length=120)
+
+
 class ChatResponse(BaseModel):
     reply: str
     stage: str

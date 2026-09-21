@@ -11,7 +11,7 @@ type ChatInputProps = {
   disabled: boolean;
   onSend: (message: string, image: File | null) => void;
   allowImages?: boolean;
-  onInteract?: () => void;
+  onInteract?: (activity: "typing" | "image_selected") => void;
 };
 
 export function ChatInput({ disabled, onSend, allowImages = true, onInteract }: ChatInputProps) {
@@ -55,7 +55,7 @@ export function ChatInput({ disabled, onSend, allowImages = true, onInteract }: 
   }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    onInteract?.();
+    onInteract?.("image_selected");
     const file = event.target.files?.[0] ?? null;
     setImageError("");
     if (file && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024)) {
@@ -117,7 +117,7 @@ export function ChatInput({ disabled, onSend, allowImages = true, onInteract }: 
           ref={textareaRef}
           id="message-input"
           value={value}
-          onChange={(event) => { onInteract?.(); setValue(event.target.value); }}
+          onChange={(event) => { onInteract?.("typing"); setValue(event.target.value); }}
           onKeyDown={handleKeyDown}
           placeholder="描述当前情况，或补充你的反馈…"
           maxLength={4000}

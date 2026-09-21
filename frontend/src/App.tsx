@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { createSession, getSessionEventsUrl, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
+import { createSession, getSessionEventsUrl, reportActivity, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
 import { ChatInput } from "./components/ChatInput";
 import type { AgentPresence, ChatResponse, FocusPath, Interaction, SolutionPlan, TaskStage, TaskUpdate, UiMessage } from "./types/chat";
 import "./resolve/workspace.css";
@@ -32,9 +32,7 @@ export default function App() {
   const [focusTaskId, setFocusTaskId] = useState("");
   const [focusPath, setFocusPath] = useState<FocusPath>(initialFocus);
   const [plan, setPlan] = useState<SolutionPlan>({ steps: [] });
-  const [messages, setMessages] = useState<UiMessage[]>([
-    { id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？", agentState: defaultPresence },
-  ]);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [interaction, setInteraction] = useState<Interaction>({ type: "text" });
   const [agentState, setAgentState] = useState<AgentPresence>(defaultPresence);
   const [visionResult, setVisionResult] = useState<ChatResponse["visionResult"]>();
@@ -48,6 +46,8 @@ export default function App() {
   const caseVersion = useRef(0);
   const currentTurnId = useRef("");
   const messageEnd = useRef<HTMLDivElement>(null);
+  const typingIdleTimer = useRef<number | undefined>(undefined);
+  const typingActive = useRef(false);
 
   const taskList = useMemo(() => Object.values(tasks), [tasks]);
   const focusedTask = tasks[focusTaskId];
@@ -72,7 +72,7 @@ export default function App() {
             setMessages(restored.messages.length ? restored.messages.map((message) => ({
               ...message,
               agentState: message.role === "user" ? undefined : normalizeAgentState(message.agentState),
-            })) : [{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？", agentState: defaultPresence }]);
+            })) : []);
             const restoredTasks: Record<string, TaskUpdate> = {};
             restored.taskUpdates?.forEach((task) => { restoredTasks[task.taskId] = task; });
             setTasks(restoredTasks); setFocusTaskId(restored.focusTaskId ?? "");
@@ -104,7 +104,7 @@ export default function App() {
     const source = new EventSource(getSessionEventsUrl(sessionId));
     source.addEventListener("proactive_message", (event) => {
       const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number; turnId?: string; caseVersion?: number; agentState?: AgentPresence };
-      if (!acceptProactive.current || (data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
+      if (!acceptProactive.current || (data.caseVersion ?? 0) < caseVersion.current || (currentTurnId.current && data.turnId && data.turnId !== currentTurnId.current)) return;
       const id = data.id ?? crypto.randomUUID();
       if (!data.content || proactiveIds.current.has(id) || Date.now() - lastProactiveAt.current < 8000) return;
       proactiveIds.current.add(id);
@@ -169,14 +169,35 @@ export default function App() {
 
   function choose(id: string, label: string, value?: string) {
     cancelProactive();
+    void reportActivity(sessionId, "choice", id).catch(() => undefined);
     void submit(value ?? label, null, label);
   }
+
+  const observeUser = useCallback((activity: "typing" | "image_selected") => {
+    cancelProactive();
+    if (!sessionId) return;
+    if (activity === "typing") {
+      if (!typingActive.current) {
+        typingActive.current = true;
+        void reportActivity(sessionId, "typing").catch(() => undefined);
+      }
+      window.clearTimeout(typingIdleTimer.current);
+      typingIdleTimer.current = window.setTimeout(() => {
+        typingActive.current = false;
+        acceptProactive.current = true;
+        void reportActivity(sessionId, "idle").catch(() => undefined);
+      }, 1800);
+    } else {
+      void reportActivity(sessionId, activity).catch(() => undefined);
+      acceptProactive.current = true;
+    }
+  }, [sessionId, cancelProactive]);
 
   function reset() {
     cancelProactive(); requestVersion.current += 1;
     setTasks({}); setFocusTaskId(""); setFocusPath(initialFocus);
     setPlan({ steps: [] });
-    setMessages([{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？", agentState: defaultPresence }]);
+    setMessages([]);
     setInteraction({ type: "text" }); setAgentState(defaultPresence); setVisionResult(undefined);
     setPending(null); setError(""); setSessionId("");
     caseVersion.current = 0; currentTurnId.current = "";
@@ -244,7 +265,7 @@ export default function App() {
             </div>}
             {canUpload && <div className="image-guidance"><strong>{interaction.image?.label ?? "补拍图片"}</strong><p>{interaction.image?.target}</p></div>}
             {error && <div className="action-error" role="alert"><span>{error}</span><button type="button" onClick={() => pending && void submit(pending.message, pending.image)}>重试</button></div>}
-            <ChatInput disabled={busy || !sessionId} onSend={submit} allowImages={canUpload} onInteract={cancelProactive} />
+            <ChatInput disabled={busy || !sessionId} onSend={submit} allowImages={canUpload} onInteract={observeUser} />
           </div>
         </section>
       </main>
