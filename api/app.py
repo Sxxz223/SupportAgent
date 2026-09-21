@@ -306,7 +306,11 @@ def create_app(
             session_id=session_id,
             stage=session.state.stage,
             messages=[
-                {"id": f"history-{item.get('turn_index')}-{index}", "role": item["role"], "content": item["content"]}
+                {
+                    "id": f"history-{item.get('turn_index')}-{index}",
+                    "role": item["role"], "content": item["content"],
+                    **({"agentState": item["agentState"]} if item.get("agentState") else {}),
+                }
                 for index, item in enumerate(session.history)
             ],
             taskUpdates=list(session.service_tasks.values()),

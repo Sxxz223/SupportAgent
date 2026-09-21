@@ -14,6 +14,7 @@ export type Interaction = {
   image_prompt?: string;
 };
 export type VisionField = { key: string; label: string; value: unknown; status: "recognized" | "unclear" | "failed"; source?: string };
+export type AgentPresence = { emoji: string; label: string };
 export type ChatResponse = {
   reply: string;
   stage: string;
@@ -28,11 +29,11 @@ export type ChatResponse = {
   focusChangeReason?: string;
   focusPath?: FocusPath;
   interaction?: Interaction;
-  agentState?: { emoji: "thinking" | "investigating" | "insight" | "done_step" | "resolved" };
+  agentState?: AgentPresence;
   emotionState?: { state: string; trend: string };
   visionResult?: { fields: VisionField[]; followUp?: { type: "partial_reshoot"; target: string } };
   plan?: SolutionPlan;
 };
-export type UiMessage = { id: string; role: "user" | "assistant" | "proactive"; content: string };
+export type UiMessage = { id: string; role: "user" | "assistant" | "proactive"; content: string; agentState?: AgentPresence };
 export type MessageRole = "user" | "assistant";
 export type ChatMessage = { id: string; role: MessageRole; content: string; imageUrl?: string };

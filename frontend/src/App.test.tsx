@@ -10,9 +10,16 @@ vi.mock("./api/client", () => ({
   getSessionEventsUrl: vi.fn(() => "http://events"),
 }));
 class EventSourceStub {
-  addEventListener = vi.fn();
+  static latest: EventSourceStub | null = null;
+  listeners: Record<string, (event: MessageEvent) => void> = {};
+  addEventListener = vi.fn((type: string, listener: EventListener) => {
+    this.listeners[type] = listener as (event: MessageEvent) => void;
+  });
   close = vi.fn();
-  constructor(_url: string) {}
+  constructor(_url: string) { EventSourceStub.latest = this; }
+  emit(type: string, payload: unknown) {
+    this.listeners[type]?.({ data: JSON.stringify(payload) } as MessageEvent);
+  }
 }
 vi.stubGlobal("EventSource", EventSourceStub);
 const createSessionMock = vi.mocked(createSession);
@@ -25,6 +32,7 @@ describe("service workspace", () => {
     createSessionMock.mockReset().mockResolvedValue("session-1");
     resumeSessionMock.mockReset(); window.localStorage.clear();
     sendMessageMock.mockReset(); sendImageMock.mockReset();
+    EventSourceStub.latest = null;
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:preview");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
   });
@@ -45,7 +53,7 @@ describe("service workspace", () => {
         { id: "verify", title: "验证充电状态", status: "pending" },
       ], revision_note: "换线无效，改为检查接口" },
       interaction: { type: "choice", question: "当前连接的是哪个接口？", options: [{ id: "c1", label: "USB-C 1" }, { id: "c2", label: "USB-C 2" }] },
-      agentState: { emoji: "investigating" },
+      agentState: { emoji: "🤗", label: "陪你一起处理" },
     });
     const user = userEvent.setup(); render(<App />);
     await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
@@ -54,7 +62,7 @@ describe("service workspace", () => {
     expect(screen.getByText("30%")).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "USB-C 1" })).toBeInTheDocument();
-    expect(screen.getByText("正在排查")).toBeInTheDocument();
+    expect(screen.getByText("陪你一起处理")).toBeInTheDocument();
     expect(screen.getByText("确定产品型号")).toBeInTheDocument();
     expect(screen.getByText("确认当前接口", { selector: ".solution-path span" })).toBeInTheDocument();
     expect(screen.getByText("路径已更新：换线无效，改为检查接口")).toBeInTheDocument();
@@ -78,14 +86,14 @@ describe("service workspace", () => {
       reply: "我理解你有两个目标。", stage: "diagnose",
       taskDecision: { type: "propose_split" },
       interaction: { type: "split_confirm", question: "要分别记录这两个问题吗？", options: [
-        { id: "split", label: "分开处理" }, { id: "single", label: "保持一个任务" }, { id: "edit", label: "修改" },
+        { id: "accurate", label: "拆分准确", value: "split_confirm:accurate" }, { id: "edit", label: "需要修改", value: "split_confirm:edit" },
       ] },
     });
     const user = userEvent.setup(); render(<App />);
     await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
     await user.type(screen.getByLabelText("输入消息"), "不能充电，不修的话还想退货{enter}");
-    expect(await screen.findByRole("button", { name: "分开处理" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保持一个任务" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "拆分准确" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "需要修改" })).toBeInTheDocument();
   });
 
   it("keeps a failed message available for retry", async () => {
@@ -113,5 +121,55 @@ describe("service workspace", () => {
     expect(await screen.findByText("继续排查充电问题")).toBeInTheDocument();
     expect(screen.getByText("确认当前接口", { selector: ".solution-path span" })).toBeInTheDocument();
     expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the clicked Chinese label while sending the machine value", async () => {
+    sendMessageMock
+      .mockResolvedValueOnce({
+        reply: "请选择型号。", stage: "diagnose", turnId: "turn_001", caseVersion: 1,
+        interaction: { type: "choice", question: "这是哪个型号？", options: [
+          { id: "a2345", label: "Anker Prime 250W", value: "charger_model:A2345" },
+        ] },
+        agentState: { emoji: "🙂", label: "耐心陪你确认" },
+      })
+      .mockResolvedValueOnce({ reply: "型号已记录。", stage: "diagnose", interaction: { type: "text" }, agentState: { emoji: "😊", label: "很高兴确认清楚" } });
+    const user = userEvent.setup(); render(<App />);
+    await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
+    await user.type(screen.getByLabelText("输入消息"), "我不确定型号{enter}");
+    await user.click(await screen.findByRole("button", { name: "Anker Prime 250W" }));
+    expect(sendMessageMock).toHaveBeenLastCalledWith("session-1", "charger_model:A2345");
+    expect(screen.getByText("Anker Prime 250W", { selector: ".stream-message p" })).toBeInTheDocument();
+    expect(screen.queryByText("charger_model:A2345", { selector: ".stream-message p" })).not.toBeInTheDocument();
+  });
+
+  it("keeps each reply emoji and renders a later proactive question", async () => {
+    sendMessageMock
+      .mockResolvedValueOnce({
+        reply: "我理解这确实让人着急。", stage: "diagnose", turnId: "turn_001", caseVersion: 1,
+        interaction: { type: "text" }, agentState: { emoji: "🥺", label: "有些心疼你的体验" },
+      })
+      .mockResolvedValueOnce({
+        reply: "好消息，我们找到方向了。", stage: "diagnose", turnId: "turn_002", caseVersion: 2,
+        interaction: { type: "none" }, agentState: { emoji: "😄", label: "替你松了口气" },
+      });
+    const user = userEvent.setup(); const { container } = render(<App />);
+    await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
+    await user.type(screen.getByLabelText("输入消息"), "真的很着急{enter}");
+    await user.type(screen.getByLabelText("输入消息"), "已经有线索了{enter}");
+    const replyEmojis = Array.from(container.querySelectorAll(".stream-message.is-assistant b")).map((node) => node.textContent);
+    expect(replyEmojis).toContain("🥺");
+    expect(replyEmojis).toContain("😄");
+
+    EventSourceStub.latest?.emit("proactive_message", {
+      id: "follow-1", content: "操作进行得怎么样了？", turnId: "turn_002", caseVersion: 2,
+      agentState: { emoji: "🤗", label: "惦记着进展" },
+    });
+    EventSourceStub.latest?.emit("interaction_update", {
+      turnId: "turn_002", caseVersion: 2,
+      interaction: { type: "choice", question: "现在进展怎么样？", options: [{ label: "已经完成" }] },
+    });
+    expect(await screen.findByText("操作进行得怎么样了？")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "已经完成" })).toBeInTheDocument();
+    expect(replyEmojis).toContain("🥺");
   });
 });

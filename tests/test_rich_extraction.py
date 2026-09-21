@@ -9,6 +9,17 @@ from my_project.workflow.stages import apply_update
 
 
 class RichExtractionTests(unittest.TestCase):
+    def test_card_machine_values_are_normalized_without_polluting_product(self):
+        from my_project.application.turn_processor import _normalize_selection_update
+        from my_project.schemas.state import StateUpdate
+
+        port = _normalize_selection_update(StateUpdate(product="USB-C 2"))
+        self.assertIsNone(port.product)
+        self.assertEqual(port.facts["current_port"].value, "USB-C2")
+
+        model = _normalize_selection_update(StateUpdate(product="charger_model:A2345"))
+        self.assertEqual(model.product, "A2345")
+
     def test_detailed_facts_and_attempted_steps_enter_state_and_case(self):
         update = StateUpdate(
             issue="brief output then stops",

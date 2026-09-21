@@ -4,6 +4,7 @@ import unittest
 
 from my_project.application.session import SupportSession
 from my_project.workflow.task_engine import apply_task_updates, confirm_task_change, propose_task_change
+from my_project.application.turn_processor import _merge_service_view
 
 
 def task(task_id, stage, status="状态"):
@@ -11,6 +12,32 @@ def task(task_id, stage, status="状态"):
 
 
 class TaskEngineTests(unittest.TestCase):
+    def test_multi_goal_split_asks_for_accuracy_not_permission(self):
+        session = SupportSession()
+        view = {
+            "taskDecision": {"type": "propose_split", "candidateTasks": [
+                {"taskId": "charging", "name": "充电异常"},
+                {"taskId": "clock", "name": "时钟不显示"},
+            ]},
+            "taskUpdates": [],
+        }
+        reply = _merge_service_view(session, view, "两个都帮我看看")
+        self.assertIn("拆成2个任务", reply)
+        self.assertEqual(
+            [option["label"] for option in view["interaction"]["options"]],
+            ["拆分准确", "需要修改"],
+        )
+        self.assertNotIn("保持一个任务", str(view))
+
+        confirmed = {
+            "taskDecision": {"type": "confirmed"},
+            "taskUpdates": [
+                task("charging", "collecting"), task("clock", "confirmed"),
+            ],
+        }
+        _merge_service_view(session, confirmed, "split_confirm:accurate")
+        self.assertEqual(set(session.service_tasks), {"charging", "clock"})
+
     def test_natural_confirmation_sentence_can_complete_but_negative_cannot(self):
         session = SupportSession(service_tasks={"charging": task("charging", "waiting_confirmation")})
         applied = apply_task_updates(session, [{

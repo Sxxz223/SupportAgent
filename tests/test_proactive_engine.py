@@ -14,7 +14,8 @@ class ProactiveEngineTests(unittest.TestCase):
         self.assertEqual(session.interaction_state["status"], "waiting_for_user_action")
         self.assertEqual(len(view["proactiveMessages"]), 1)
         self.assertEqual(view["proactiveMessages"][0]["delaySeconds"], 2)
-        self.assertNotIn("？", view["proactiveMessages"][0]["content"])
+        self.assertEqual(view["proactiveMessages"][0]["category"], "followup")
+        self.assertEqual(view["proactiveMessages"][0]["interaction"]["type"], "choice")
 
     def test_no_active_task_or_no_wait_stays_quiet(self):
         no_task = SupportSession(turn_index=1)

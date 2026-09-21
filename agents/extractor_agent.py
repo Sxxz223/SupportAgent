@@ -34,6 +34,8 @@ Rules:
 - Keep multiple attempted actions as a JSON list. Preserve informal customer wording in values.
 - Extract a standalone four-digit verification response as phone_last4.
 - Extract an order number when the user provides one.
+- Values such as USB-C1, USB-C 2, USB-A1, or a bare port choice are `current_port`, never `product`.
+- A machine selection such as `charger_model:A2345` means product/model A2345; extract the model value without the prefix.
 - Do not guess.
 - If a field is not mentioned, use null.
 - Do not output markdown.

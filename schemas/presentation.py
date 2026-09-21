@@ -102,10 +102,8 @@ class VisionResult(ContractModel):
 
 
 class AgentStateView(ContractModel):
-    emoji: Literal[
-        "idle", "thinking", "checking", "investigating", "found", "insight",
-        "done_step", "completed", "resolved",
-    ]
+    emoji: str = Field(min_length=1, max_length=8)
+    label: str = Field(min_length=1, max_length=24)
 
 
 class EmotionState(ContractModel):
@@ -120,6 +118,7 @@ class ProactiveMessage(ContractModel):
     priority: int = Field(default=0, ge=0, le=3)
     expiresInSeconds: int = Field(default=10, ge=1, le=300)
     delaySeconds: int = Field(default=3, ge=1, le=30)
+    interaction: Interaction | None = None
 
 
 FIELD_ADAPTERS = {

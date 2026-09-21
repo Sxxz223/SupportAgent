@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createSession, getSessionEventsUrl, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
 import { ChatInput } from "./components/ChatInput";
-import type { ChatResponse, FocusPath, Interaction, SolutionPlan, TaskStage, TaskUpdate, UiMessage } from "./types/chat";
+import type { AgentPresence, ChatResponse, FocusPath, Interaction, SolutionPlan, TaskStage, TaskUpdate, UiMessage } from "./types/chat";
 import "./resolve/workspace.css";
 
 const stageProgress: Record<TaskStage, number> = {
@@ -10,23 +10,20 @@ const stageProgress: Record<TaskStage, number> = {
   solution_provided: 90, waiting_confirmation: 99, completed: 100,
   cancelled: 0,
 };
-const presence = {
-  thinking: ["🤔", "正在思考"], investigating: ["🔍", "正在排查"],
-  insight: ["💡", "发现线索"], done_step: ["✅", "已有进展"], resolved: ["🎉", "问题已解决"],
-} as const;
+const defaultPresence: AgentPresence = { emoji: "🙂", label: "愿意听你说" };
 const initialFocus: FocusPath = {
   currentState: "等待你的问题", knownFacts: [], currentJudgement: "—", nextDirection: "—",
 };
 const SESSION_STORAGE_KEY = "anker-support-session";
 type Pending = { message: string; image: File | null };
-type PresenceState = keyof typeof presence;
-function normalizeAgentState(state?: string | null): PresenceState | null {
-  const aliases: Record<string, PresenceState | null> = {
-    checking: "investigating", found: "insight", completed: "done_step", idle: null,
-    thinking: "thinking", investigating: "investigating", insight: "insight",
-    done_step: "done_step", resolved: "resolved",
+function normalizeAgentState(state?: Partial<AgentPresence> | null): AgentPresence {
+  if (!state?.emoji) return defaultPresence;
+  const legacy: Record<string, AgentPresence> = {
+    thinking: { emoji: "🤔", label: "认真听着" }, investigating: { emoji: "🧐", label: "陪你理清" },
+    insight: { emoji: "😊", label: "有眉目了" }, done_step: { emoji: "🙌", label: "一起推进了" },
+    resolved: { emoji: "🥳", label: "真替你开心" },
   };
-  return state ? aliases[state] ?? null : null;
+  return legacy[state.emoji] ?? { emoji: state.emoji, label: state.label || "陪着你" };
 }
 
 export default function App() {
@@ -36,10 +33,10 @@ export default function App() {
   const [focusPath, setFocusPath] = useState<FocusPath>(initialFocus);
   const [plan, setPlan] = useState<SolutionPlan>({ steps: [] });
   const [messages, setMessages] = useState<UiMessage[]>([
-    { id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" },
+    { id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？", agentState: defaultPresence },
   ]);
   const [interaction, setInteraction] = useState<Interaction>({ type: "text" });
-  const [agentState, setAgentState] = useState<PresenceState | null>(null);
+  const [agentState, setAgentState] = useState<AgentPresence>(defaultPresence);
   const [visionResult, setVisionResult] = useState<ChatResponse["visionResult"]>();
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -54,7 +51,7 @@ export default function App() {
 
   const taskList = useMemo(() => Object.values(tasks), [tasks]);
   const focusedTask = tasks[focusTaskId];
-  const [presenceEmoji, presenceLabel] = agentState ? presence[agentState] : ["AI", "在线"];
+  const { emoji: presenceEmoji, label: presenceLabel } = agentState;
   const canUpload = Boolean(interaction.image?.enabled || interaction.type === "partial_reshoot");
 
   const cancelProactive = useCallback(() => {
@@ -72,13 +69,16 @@ export default function App() {
           const restored = await resumeSession(storedId);
           if (requestVersion.current === version) {
             setSessionId(storedId);
-            setMessages(restored.messages.length ? restored.messages : [{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" }]);
+            setMessages(restored.messages.length ? restored.messages.map((message) => ({
+              ...message,
+              agentState: message.role === "user" ? undefined : normalizeAgentState(message.agentState),
+            })) : [{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？", agentState: defaultPresence }]);
             const restoredTasks: Record<string, TaskUpdate> = {};
             restored.taskUpdates?.forEach((task) => { restoredTasks[task.taskId] = task; });
             setTasks(restoredTasks); setFocusTaskId(restored.focusTaskId ?? "");
             setFocusPath(restored.focusPath ?? initialFocus); setPlan(restored.plan ?? { steps: [] });
             setInteraction(restored.interaction ?? { type: "text" });
-            setAgentState(normalizeAgentState(restored.agentState?.emoji));
+            setAgentState(normalizeAgentState(restored.agentState));
             acceptProactive.current = true;
             caseVersion.current = restored.caseVersion ?? 0; currentTurnId.current = restored.turnId ?? "";
           }
@@ -103,20 +103,26 @@ export default function App() {
     if (!sessionId) return;
     const source = new EventSource(getSessionEventsUrl(sessionId));
     source.addEventListener("proactive_message", (event) => {
-      const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number; turnId?: string; caseVersion?: number };
+      const data = JSON.parse((event as MessageEvent).data) as { id?: string; content?: string; expiresInSeconds?: number; turnId?: string; caseVersion?: number; agentState?: AgentPresence };
       if (!acceptProactive.current || (data.caseVersion ?? 0) < caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
       const id = data.id ?? crypto.randomUUID();
       if (!data.content || proactiveIds.current.has(id) || Date.now() - lastProactiveAt.current < 8000) return;
       proactiveIds.current.add(id);
-      setMessages((current) => [...current, { id, role: "proactive", content: data.content! }]);
+      const messagePresence = normalizeAgentState(data.agentState ?? agentState);
+      setMessages((current) => [...current, { id, role: "proactive", content: data.content!, agentState: messagePresence }]);
       lastProactiveAt.current = Date.now();
     });
     source.addEventListener("agent_state", (event) => {
-      const data = JSON.parse((event as MessageEvent).data) as { state?: string; turnId?: string; caseVersion?: number };
+      const data = JSON.parse((event as MessageEvent).data) as { emoji?: string; label?: string; turnId?: string; caseVersion?: number };
       const version = data.caseVersion ?? 0;
       if (version < caseVersion.current || version > caseVersion.current + 1) return;
       if (version === caseVersion.current && data.turnId && data.turnId !== currentTurnId.current) return;
-      setAgentState(normalizeAgentState(data.state));
+      setAgentState(normalizeAgentState(data));
+    });
+    source.addEventListener("interaction_update", (event) => {
+      const data = JSON.parse((event as MessageEvent).data) as { interaction?: Interaction; turnId?: string; caseVersion?: number };
+      if (!acceptProactive.current || (data.caseVersion ?? 0) !== caseVersion.current || (data.turnId && data.turnId !== currentTurnId.current)) return;
+      if (data.interaction) setInteraction(data.interaction);
     });
     return () => source.close();
   }, [sessionId, cancelProactive]);
@@ -125,7 +131,8 @@ export default function App() {
     if (typeof response.caseVersion === "number" && response.caseVersion < caseVersion.current) return;
     if (typeof response.caseVersion === "number") caseVersion.current = response.caseVersion;
     if (response.turnId) currentTurnId.current = response.turnId;
-    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: response.reply }]);
+    const responsePresence = normalizeAgentState(response.agentState);
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: response.reply, agentState: responsePresence }]);
     if (response.taskUpdates) {
       setTasks((current) => {
         const next = { ...current };
@@ -137,17 +144,16 @@ export default function App() {
     if (response.focusPath) setFocusPath(response.focusPath);
     if (response.plan) setPlan(response.plan);
     setInteraction(response.interaction ?? { type: "text" });
-    setAgentState(normalizeAgentState(response.agentState?.emoji));
+    setAgentState(responsePresence);
     acceptProactive.current = true;
     setVisionResult(response.visionResult);
   }
 
-  async function submit(message: string, image: File | null) {
+  async function submit(message: string, image: File | null, displayMessage = message) {
     if (!sessionId) return;
     cancelProactive();
     setBusy(true); setError(""); setPending({ message, image });
-    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", content: message || "已上传图片" }]);
-    setAgentState(image ? "investigating" : "thinking");
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", content: displayMessage || "已上传图片" }]);
     try {
       const response = image
         ? await sendMultimodalMessage(sessionId, message, image, {
@@ -163,15 +169,15 @@ export default function App() {
 
   function choose(id: string, label: string, value?: string) {
     cancelProactive();
-    void submit(value ?? label, null);
+    void submit(value ?? label, null, label);
   }
 
   function reset() {
     cancelProactive(); requestVersion.current += 1;
     setTasks({}); setFocusTaskId(""); setFocusPath(initialFocus);
     setPlan({ steps: [] });
-    setMessages([{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" }]);
-    setInteraction({ type: "text" }); setAgentState(null); setVisionResult(undefined);
+    setMessages([{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？", agentState: defaultPresence }]);
+    setInteraction({ type: "text" }); setAgentState(defaultPresence); setVisionResult(undefined);
     setPending(null); setError(""); setSessionId("");
     caseVersion.current = 0; currentTurnId.current = "";
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -212,12 +218,12 @@ export default function App() {
 
         <section className="conversation-card">
           <header className="agent-presence">
-            <b className={agentState ? "is-active" : ""}>{presenceEmoji}</b>
+            <b className="is-active">{presenceEmoji}</b>
             <span><strong>Anker 智能服务助手</strong><small>{presenceLabel}</small></span>
           </header>
           <div className="chat-stream" aria-live="polite">
             {messages.map((message) => <div key={message.id} className={`stream-message is-${message.role}`}>
-              {message.role !== "user" && <b>{message.role === "proactive" ? "AI" : presenceEmoji}</b>}
+              {message.role !== "user" && <b title={message.agentState?.label}>{message.agentState?.emoji ?? "🙂"}</b>}
               <p>{message.content}</p>
             </div>)}
             {busy && <div className="stream-thinking"><i /><i /><i /></div>}

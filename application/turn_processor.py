@@ -19,6 +19,7 @@ from ..vision.qwen import analyze_image_qwen
 from ..workflow.actions import decide_next_action
 from ..workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
 from ..schemas.presentation import validate_presentation
+from ..schemas.state import ExtractedFact
 from ..workflow.task_engine import apply_task_updates, confirm_task_change, propose_task_change
 from ..workflow.focus_engine import apply_focus_change, apply_live_plan
 from ..workflow.emotion_engine import apply_emotion_state
@@ -52,6 +53,23 @@ def _record_text_facts(session: SupportSession, update):
         if not accepted:
             safe_update.facts.pop(key, None)
     return safe_update
+
+
+def _normalize_selection_update(update):
+    """Keep compact card values from being mistaken for unrelated business fields."""
+    product = update.product.strip() if isinstance(update.product, str) else ""
+    machine_model = re.fullmatch(r"(?:charger_)?model\s*:\s*(.+)", product, re.IGNORECASE)
+    if machine_model:
+        update.product = machine_model.group(1).strip()
+        return update
+    port = re.fullmatch(r"USB\s*-?\s*([AC])\s*-?\s*(\d+)", product, re.IGNORECASE)
+    if port:
+        value = f"USB-{port.group(1).upper()}{port.group(2)}"
+        update.product = None
+        update.facts.setdefault(
+            "current_port", ExtractedFact(value=value, kind="observation")
+        )
+    return update
 
 
 FACT_LABELS = {
@@ -166,7 +184,8 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
     return payload["reply"], presentation
 
 
-def _merge_service_view(session: SupportSession, presentation: dict, user_input: str) -> None:
+def _merge_service_view(session: SupportSession, presentation: dict, user_input: str) -> str | None:
+    split_reply: str | None = None
     for key, value in presentation.get("factsUpdate", {}).items():
         session.upsert_fact(
             key, value, "agent_extraction", confirmed=False,
@@ -180,19 +199,36 @@ def _merge_service_view(session: SupportSession, presentation: dict, user_input:
     change_confirmed = confirm_task_change(session, user_input)
     allow_new_tasks = not session.service_tasks or change_confirmed
     if decision_type == "propose_split":
-        session.pending_task_change = "split"
+        candidates = presentation.get("taskDecision", {}).get("candidateTasks", [])
+        session.pending_task_change = {"type": "split", "candidateTasks": candidates}
         presentation["taskUpdates"] = []
         presentation.pop("focusTaskId", None)
         presentation.pop("focusPath", None)
         presentation.pop("plan", None)
-    elif decision_type == "confirmed" and session.pending_task_change == "split":
+        names = [item.get("name") for item in candidates if item.get("name")]
+        count = len(names)
+        summary = "、".join(f"{index + 1}.{name}" for index, name in enumerate(names)) if names else "这些独立需求"
+        split_reply = f"我已经把你的需求拆成{count or '几个'}个任务：{summary}。这样拆分准确吗？"
+        presentation["interaction"] = {
+            "type": "split_confirm",
+            "question": "这些任务是否准确？",
+            "options": [
+                {"id": "split-accurate", "label": "拆分准确", "value": "split_confirm:accurate"},
+                {"id": "split-edit", "label": "需要修改", "value": "split_confirm:edit"},
+            ],
+        }
+    elif decision_type == "confirmed" and isinstance(session.pending_task_change, dict) and session.pending_task_change.get("type") == "split":
         normalized = user_input.strip().lower()
-        if normalized in {"split", "分开处理", "分别处理"}:
+        if normalized in {"split_confirm:accurate", "拆分准确", "准确"}:
             session.pending_task_change = None
             allow_new_tasks = True
-        elif normalized in {"keep_one", "保持一个任务", "合并处理"}:
-            session.pending_task_change = None
-            presentation["taskUpdates"] = presentation.get("taskUpdates", [])[:1]
+        elif normalized in {"split_confirm:edit", "需要修改", "修改"}:
+            presentation["taskUpdates"] = []
+            presentation["interaction"] = {
+                "type": "text",
+                "question": "请告诉我哪一个任务需要增加、删除或改名。",
+                "options": [],
+            }
         else:
             presentation["taskUpdates"] = []
             presentation.pop("focusTaskId", None)
@@ -201,6 +237,7 @@ def _merge_service_view(session: SupportSession, presentation: dict, user_input:
     presentation["taskUpdates"] = apply_task_updates(
         session, presentation.get("taskUpdates", []), user_input, allow_new_tasks,
     )
+    return split_reply
 
 
 def process_turn(
@@ -216,17 +253,6 @@ def process_turn(
     session.turn_index += 1
     # A new customer action invalidates every unsent event from the previous turn.
     session.proactive_events.clear()
-    started_at = time.time()
-    initial_agent_state = "checking" if image_path else "thinking"
-    session.proactive_events.append({
-        "eventType": "agent_state",
-        "turn_index": session.turn_index,
-        "turnId": f"turn_{session.turn_index:03d}",
-        "caseVersion": session.case_version + 1,
-        "state": initial_agent_state,
-        "deliverAt": started_at,
-        "expiresAt": started_at + 30,
-    })
     state = session.state
     resolved_conflict = session.resolve_fact_conflict(user_input)
     if resolved_conflict:
@@ -253,7 +279,7 @@ def process_turn(
         model = create_deepseek_model()
         extractor_agent = create_extractor_agent(model)
         failed_stage = "text_extraction"
-        update = extract_state_update(extractor_agent, user_input)
+        update = _normalize_selection_update(extract_state_update(extractor_agent, user_input))
         if recorder:
             recorder.record_extraction(update)
         update = _record_text_facts(session, update)
@@ -398,7 +424,9 @@ def process_turn(
             raise RuntimeError("Main Agent did not run")
         _sync_confirmed_business_facts(session)
         final_output, session.presentation = _parse_agent_output(str(final_output))
-        _merge_service_view(session, session.presentation, user_input)
+        split_reply = _merge_service_view(session, session.presentation, user_input)
+        if split_reply:
+            final_output = split_reply
         apply_focus_change(session, session.presentation, user_input, final_output)
         apply_live_plan(session, session.presentation)
         apply_emotion_state(session, session.presentation, user_input)
@@ -414,29 +442,43 @@ def process_turn(
         session.presentation["caseVersion"] = session.case_version
         proactive_messages = session.presentation.pop("proactiveMessages", [])
         agent_state = session.presentation.get("agentState")
-        if agent_state and agent_state["emoji"] != initial_agent_state:
+        if agent_state:
             session.proactive_events.append({
                 "eventType": "agent_state",
                 "turn_index": session.turn_index,
                 "turnId": session.presentation["turnId"],
                 "caseVersion": session.case_version,
-                "state": agent_state["emoji"],
+                "emoji": agent_state["emoji"],
+                "label": agent_state["label"],
                 "deliverAt": time.time(),
                 "expiresAt": time.time() + 10,
             })
         for message in proactive_messages:
             delay = message.pop("delaySeconds", 3)
             expires = message.get("expiresInSeconds", 10)
+            linked_interaction = message.pop("interaction", None)
             created_at = time.time()
-            session.proactive_events.append({
+            event = {
                 "eventType": "proactive_message",
                 "turn_index": session.turn_index,
                 "turnId": session.presentation["turnId"],
                 "caseVersion": session.case_version,
                 "deliverAt": created_at + delay,
                 "expiresAt": created_at + delay + expires,
+                **({"agentState": agent_state} if agent_state else {}),
                 **message,
-            })
+            }
+            session.proactive_events.append(event)
+            if linked_interaction:
+                session.proactive_events.append({
+                    "eventType": "interaction_update",
+                    "turn_index": session.turn_index,
+                    "turnId": session.presentation["turnId"],
+                    "caseVersion": session.case_version,
+                    "interaction": linked_interaction,
+                    "deliverAt": created_at + delay,
+                    "expiresAt": created_at + delay + expires,
+                })
         workflow_after_tools_action = decide_next_action(state)
         _, workflow_after_tools_names = get_allowed_tools(state)
         if recorder:
@@ -447,7 +489,10 @@ def process_turn(
             recorder.record_agent_reply(final_output)
         session.history.extend([
             {"turn_index": session.turn_index, "role": "user", "content": user_input},
-            {"turn_index": session.turn_index, "role": "assistant", "content": final_output},
+            {
+                "turn_index": session.turn_index, "role": "assistant", "content": final_output,
+                **({"agentState": agent_state} if agent_state else {}),
+            },
         ])
         return final_output
     except Exception as error:

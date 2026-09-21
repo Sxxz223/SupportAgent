@@ -17,12 +17,20 @@ def apply_waiting_and_proactive_state(session, presentation: dict, user_input: s
     if not waiting or not session.focus_task_id or presentation.get("proactiveMessages"):
         return
     emotion = presentation.get("emotionState", {}).get("state", "neutral")
-    delay = 2 if emotion == "frustrated" else 3 if emotion == "anxious" else 5
+    delay = 2 if emotion == "frustrated" else 3 if emotion == "anxious" else 4
     presentation["proactiveMessages"] = [{
         "id": f"wait-{session.turn_index:03d}",
-        "content": "前面已经确认的信息都保留着，完成后不用重新描述。",
-        "category": "reassurance" if emotion in {"frustrated", "anxious"} else "supplement",
+        "content": "操作进行得怎么样了？",
+        "category": "followup",
         "priority": 1,
         "delaySeconds": delay,
         "expiresInSeconds": 20,
+        "interaction": {
+            "type": "choice",
+            "question": "现在进展怎么样？",
+            "options": [
+                {"id": "wait-done", "label": "已经完成", "value": "操作已经完成"},
+                {"id": "wait-more", "label": "还需要一点时间", "value": "我还需要一点时间"},
+            ],
+        },
     }]
