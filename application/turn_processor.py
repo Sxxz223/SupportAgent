@@ -18,6 +18,8 @@ from ..vision.qwen import analyze_image_qwen
 from ..workflow.actions import decide_next_action
 from ..workflow.stages import apply_update, apply_vision_update, next_stage, get_allowed_tools
 from ..schemas.presentation import validate_presentation
+from ..workflow.task_engine import apply_task_updates, confirm_task_change, propose_task_change
+from ..workflow.focus_engine import apply_focus_change, apply_live_plan
 
 MAX_AGENT_STEPS = 5
 TASK_DECISIONS = {"single", "clarify", "propose_split", "confirmed"}
@@ -150,7 +152,9 @@ def _parse_agent_output(raw: str) -> tuple[str, dict]:
                 and isinstance(step.get("title"), str)
                 and step.get("status") in PLAN_STATES
             ]
-            if not valid_steps or sum(step["status"] == "current" for step in valid_steps) > 1:
+            current_count = sum(step["status"] == "current" for step in valid_steps)
+            all_done = all(step["status"] == "done" for step in valid_steps)
+            if not valid_steps or (current_count != 1 and not all_done):
                 presentation.pop("plan", None)
             else:
                 plan["steps"] = valid_steps
@@ -164,6 +168,12 @@ def _merge_service_view(session: SupportSession, presentation: dict, user_input:
             detect_conflict=True,
         )
     decision_type = presentation.get("taskDecision", {}).get("type")
+    change = presentation.get("taskChange")
+    if change and change.get("status") == "proposed":
+        propose_task_change(session, change)
+        presentation["taskUpdates"] = []
+    change_confirmed = confirm_task_change(session, user_input)
+    allow_new_tasks = not session.service_tasks or change_confirmed
     if decision_type == "propose_split":
         session.pending_task_change = "split"
         presentation["taskUpdates"] = []
@@ -174,6 +184,7 @@ def _merge_service_view(session: SupportSession, presentation: dict, user_input:
         normalized = user_input.strip().lower()
         if normalized in {"split", "分开处理", "分别处理"}:
             session.pending_task_change = None
+            allow_new_tasks = True
         elif normalized in {"keep_one", "保持一个任务", "合并处理"}:
             session.pending_task_change = None
             presentation["taskUpdates"] = presentation.get("taskUpdates", [])[:1]
@@ -182,20 +193,9 @@ def _merge_service_view(session: SupportSession, presentation: dict, user_input:
             presentation.pop("focusTaskId", None)
             presentation.pop("focusPath", None)
             presentation.pop("plan", None)
-    for task in presentation.get("taskUpdates", []):
-        task_id = task.get("taskId")
-        if task_id:
-            session.service_tasks[task_id] = {**session.service_tasks.get(task_id, {}), **task}
-    focus_id = presentation.get("focusTaskId")
-    if not focus_id and session.service_tasks:
-        focus_id = session.focus_task_id or next(iter(session.service_tasks))
-        presentation["focusTaskId"] = focus_id
-    if focus_id:
-        session.focus_task_id = focus_id
-    if isinstance(presentation.get("focusPath"), dict):
-        session.focus_path = presentation["focusPath"]
-    if isinstance(presentation.get("plan"), dict):
-        session.focus_plan = presentation["plan"]
+    presentation["taskUpdates"] = apply_task_updates(
+        session, presentation.get("taskUpdates", []), user_input, allow_new_tasks,
+    )
 
 
 def process_turn(
@@ -377,6 +377,8 @@ def process_turn(
         _sync_confirmed_business_facts(session)
         final_output, session.presentation = _parse_agent_output(str(final_output))
         _merge_service_view(session, session.presentation, user_input)
+        apply_focus_change(session, session.presentation, user_input, final_output)
+        apply_live_plan(session, session.presentation)
         _apply_vision_result_view(session, session.presentation)
         conflict_reply = _apply_fact_conflict_view(session, session.presentation)
         if conflict_reply:

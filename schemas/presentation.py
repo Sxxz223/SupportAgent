@@ -21,6 +21,26 @@ class TaskUpdate(ContractModel):
         "solution_provided", "waiting_confirmation", "completed", "cancelled",
     ]
     statusText: str = Field(min_length=1)
+    revisionReason: str | None = None
+
+
+class TaskCandidate(ContractModel):
+    taskId: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    stage: Literal[
+        "confirmed", "collecting", "information_ready", "judgement_formed",
+        "solution_provided", "waiting_confirmation",
+    ] = "confirmed"
+    statusText: str = "已根据现有信息建立"
+
+
+class TaskChange(ContractModel):
+    changeId: str = Field(min_length=1)
+    action: Literal["add", "split", "merge", "rename", "cancel"]
+    status: Literal["proposed", "confirmed"]
+    sourceTaskIds: list[str] = Field(default_factory=list)
+    candidateTasks: list[TaskCandidate] = Field(default_factory=list)
+    reason: str = Field(min_length=1)
 
 
 class FocusPath(ContractModel):
@@ -37,7 +57,7 @@ class PlanStep(ContractModel):
 
 
 class SolutionPlan(ContractModel):
-    steps: list[PlanStep] = Field(min_length=1)
+    steps: list[PlanStep] = Field(min_length=1, max_length=7)
     revision_note: str | None = None
 
 
@@ -104,6 +124,7 @@ class ProactiveMessage(ContractModel):
 FIELD_ADAPTERS = {
     "taskDecision": TypeAdapter(TaskDecision),
     "taskUpdates": TypeAdapter(list[TaskUpdate]),
+    "taskChange": TypeAdapter(TaskChange),
     "focusPath": TypeAdapter(FocusPath),
     "plan": TypeAdapter(SolutionPlan),
     "interaction": TypeAdapter(Interaction),

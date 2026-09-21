@@ -66,8 +66,9 @@ from my_project.api.schemas import (
     OrderUpdateRequest,
     ProductResponse,
     SessionResponse,
+    SessionRestoreResponse,
 )
-from my_project.api.session_store import InMemorySessionStore
+from my_project.api.session_store import InMemorySessionStore, SQLiteSessionStore
 from my_project.application.session import SupportSession
 from my_project.application.turn_processor import process_turn
 from my_project.evaluation.report_reader import (
@@ -153,7 +154,7 @@ def create_app(
 ) -> FastAPI:
     """Create an API instance with explicit in-memory dependencies."""
     api = FastAPI(title="Support Agent API")
-    api.state.session_store = session_store or InMemorySessionStore()
+    api.state.session_store = session_store or SQLiteSessionStore(project_dir / "data" / "cases.db")
     api.state.turn_processor = turn_processor
     api.state.evaluation_report_path = Path(evaluation_report_path)
     api.state.customer_service = customer_service or get_customer_service()
@@ -295,6 +296,29 @@ def create_app(
         session_id = request.app.state.session_store.create_session()
         return SessionResponse(session_id=session_id)
 
+    @api.get("/session/{session_id}", response_model=SessionRestoreResponse, response_model_exclude_none=True)
+    def restore_session(session_id: str, request: Request) -> SessionRestoreResponse:
+        session = request.app.state.session_store.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="Support session not found")
+        return SessionRestoreResponse(
+            session_id=session_id,
+            stage=session.state.stage,
+            messages=[
+                {"id": f"history-{item.get('turn_index')}-{index}", "role": item["role"], "content": item["content"]}
+                for index, item in enumerate(session.history)
+            ],
+            taskUpdates=list(session.service_tasks.values()),
+            focusTaskId=session.focus_task_id,
+            focusPath=session.focus_path or None,
+            plan=session.focus_plan or None,
+            interaction=session.presentation.get("interaction"),
+            emotionState=session.presentation.get("emotionState"),
+            agentState=session.presentation.get("agentState"),
+            turnId=f"turn_{session.turn_index:03d}",
+            caseVersion=session.case_version,
+        )
+
     @api.get("/session/{session_id}/events")
     async def session_events(session_id: str, request: Request) -> StreamingResponse:
         session = request.app.state.session_store.get_session(session_id)
@@ -305,6 +329,7 @@ def create_app(
             while not await request.is_disconnected():
                 if session.proactive_events:
                     item = session.proactive_events.pop(0)
+                    request.app.state.session_store.save_session(session_id, session)
                     yield f"event: proactive_message\ndata: {json.dumps(item, ensure_ascii=False)}\n\n"
                 else:
                     yield ": keep-alive\n\n"
@@ -323,6 +348,7 @@ def create_app(
             user_input=payload.message,
             image_path=None,
         )
+        request.app.state.session_store.save_session(payload.session_id, session)
         return ChatResponse(reply=reply, stage=session.state.stage, **session.presentation)
 
     @api.post("/chat/multimodal", response_model=ChatResponse, response_model_exclude_none=True)
@@ -351,6 +377,7 @@ def create_app(
                 user_input=message,
                 image_path=image_path,
             )
+            request.app.state.session_store.save_session(session_id, session)
             return ChatResponse(reply=reply, stage=session.state.stage, **session.presentation)
         finally:
             image.file.close()

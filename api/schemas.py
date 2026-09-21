@@ -13,6 +13,21 @@ class SessionResponse(BaseModel):
     session_id: str
 
 
+class SessionRestoreResponse(BaseModel):
+    session_id: str
+    stage: str
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    taskUpdates: list[dict[str, Any]] = Field(default_factory=list)
+    focusTaskId: str | None = None
+    focusPath: dict[str, Any] | None = None
+    plan: dict[str, Any] | None = None
+    interaction: dict[str, Any] | None = None
+    emotionState: dict[str, str] | None = None
+    agentState: dict[str, str] | None = None
+    turnId: str | None = None
+    caseVersion: int = 0
+
+
 class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1)
     message: str = Field(min_length=1)
@@ -27,6 +42,7 @@ class ChatResponse(BaseModel):
     interaction: dict[str, Any] | None = None
     taskDecision: dict[str, Any] | None = None
     taskUpdates: list[dict[str, Any]] | None = None
+    taskChange: dict[str, Any] | None = None
     focusTaskId: str | None = None
     focusChanged: bool | None = None
     focusChangeReason: str | None = None

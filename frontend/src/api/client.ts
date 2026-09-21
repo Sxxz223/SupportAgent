@@ -1,4 +1,4 @@
-import type { ChatResponse, SessionResponse } from "../types/chat";
+import type { ChatResponse, SessionResponse, SessionRestoreResponse } from "../types/chat";
 import type {
   Customer,
   CustomerDetail,
@@ -101,6 +101,10 @@ export async function createSession(): Promise<string> {
     method: "POST",
   });
   return response.session_id;
+}
+
+export function resumeSession(sessionId: string): Promise<SessionRestoreResponse> {
+  return request<SessionRestoreResponse>(`/session/${encodeURIComponent(sessionId)}`, { method: "GET" });
 }
 
 export function sendMessage(

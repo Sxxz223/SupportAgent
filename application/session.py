@@ -1,5 +1,5 @@
 """In-memory session and per-turn execution context."""
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .events import RuntimeEvent
@@ -28,7 +28,10 @@ class SupportSession:
     presentation: dict[str, Any] = field(default_factory=dict)
     proactive_events: list[dict[str, Any]] = field(default_factory=list)
     service_tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
+    task_history: list[dict[str, Any]] = field(default_factory=list)
     focus_task_id: str | None = None
+    focus_history: list[dict[str, Any]] = field(default_factory=list)
+    path_history: list[dict[str, Any]] = field(default_factory=list)
     focus_path: dict[str, Any] = field(default_factory=dict)
     focus_plan: dict[str, Any] = field(default_factory=dict)
     pending_task_change: str | None = None
@@ -131,9 +134,14 @@ class SupportSession:
         return {
             "turnId": f"turn_{self.turn_index:03d}",
             "caseVersion": self.case_version,
+            "state": asdict(self.state),
+            "history": self.history,
             "facts": {key: fact.to_dict() for key, fact in self.facts.items()},
             "tasks": list(self.service_tasks.values()),
+            "taskHistory": self.task_history,
             "focusTaskId": self.focus_task_id,
+            "focusHistory": self.focus_history,
+            "pathHistory": self.path_history,
             "focusPath": self.focus_path,
             "plan": self.focus_plan,
             "interaction": self.presentation.get("interaction", {}),
@@ -144,11 +152,21 @@ class SupportSession:
             "pendingFactConflicts": self.pending_fact_conflicts,
             "pendingVisionFields": self.pending_vision_fields,
             "pendingReshootTarget": self.pending_reshoot_target,
+            "proactiveEvents": self.proactive_events,
         }
 
     def restore_case(self, snapshot: dict[str, Any]) -> None:
         """Restore the UI/service portion of a previously serialized case."""
         self.case_version = int(snapshot.get("caseVersion", 0))
+        state_data = snapshot.get("state")
+        if isinstance(state_data, dict):
+            self.state = SupportState(**state_data)
+        self.history = list(snapshot.get("history") or [])
+        turn_id = str(snapshot.get("turnId", "turn_000"))
+        try:
+            self.turn_index = int(turn_id.rsplit("_", 1)[1])
+        except (IndexError, ValueError):
+            self.turn_index = 0
         self.facts = {
             key: CaseFact.from_dict(value)
             for key, value in snapshot.get("facts", {}).items()
@@ -157,7 +175,10 @@ class SupportSession:
             task["taskId"]: dict(task)
             for task in snapshot.get("tasks", []) if task.get("taskId")
         }
+        self.task_history = list(snapshot.get("taskHistory") or [])
         self.focus_task_id = snapshot.get("focusTaskId")
+        self.focus_history = list(snapshot.get("focusHistory") or [])
+        self.path_history = list(snapshot.get("pathHistory") or [])
         self.focus_path = dict(snapshot.get("focusPath") or {})
         self.focus_plan = dict(snapshot.get("plan") or {})
         self.vision_request = dict(snapshot.get("visionRequest") or {})
@@ -165,6 +186,7 @@ class SupportSession:
         self.pending_fact_conflicts = dict(snapshot.get("pendingFactConflicts") or {})
         self.pending_vision_fields = dict(snapshot.get("pendingVisionFields") or {})
         self.pending_reshoot_target = snapshot.get("pendingReshootTarget")
+        self.proactive_events = list(snapshot.get("proactiveEvents") or [])
         self.presentation = {
             key: snapshot[key] for key in ("interaction", "emotionState", "agentState")
             if snapshot.get(key)

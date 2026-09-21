@@ -41,6 +41,16 @@ class PresentationContractTests(unittest.TestCase):
         self.assertEqual(reply, "继续排查。")
         self.assertNotIn("plan", view)
 
+    def test_unfinished_plan_requires_exactly_one_current_step(self):
+        from my_project.application.turn_processor import _parse_agent_output
+        import json
+        _, view = _parse_agent_output(json.dumps({
+            "reply": "继续。", "plan": {"steps": [
+                {"id": "a", "title": "确认接口", "status": "pending"},
+            ]},
+        }))
+        self.assertNotIn("plan", view)
+
 
 if __name__ == "__main__":
     unittest.main()

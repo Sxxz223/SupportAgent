@@ -2,10 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { createSession, sendMessage, sendMultimodalMessage } from "./api/client";
+import { createSession, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
 
 vi.mock("./api/client", () => ({
   createSession: vi.fn(), sendMessage: vi.fn(), sendMultimodalMessage: vi.fn(),
+  resumeSession: vi.fn(),
   getSessionEventsUrl: vi.fn(() => "http://events"),
 }));
 class EventSourceStub {
@@ -15,12 +16,14 @@ class EventSourceStub {
 }
 vi.stubGlobal("EventSource", EventSourceStub);
 const createSessionMock = vi.mocked(createSession);
+const resumeSessionMock = vi.mocked(resumeSession);
 const sendMessageMock = vi.mocked(sendMessage);
 const sendImageMock = vi.mocked(sendMultimodalMessage);
 
 describe("service workspace", () => {
   beforeEach(() => {
     createSessionMock.mockReset().mockResolvedValue("session-1");
+    resumeSessionMock.mockReset(); window.localStorage.clear();
     sendMessageMock.mockReset(); sendImageMock.mockReset();
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:preview");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
@@ -93,5 +96,22 @@ describe("service workspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("内容已保留");
     await user.click(screen.getByRole("button", { name: "重试" }));
     expect(await screen.findByText("已恢复")).toBeInTheDocument();
+  });
+
+  it("restores the existing case after a page reload", async () => {
+    window.localStorage.setItem("anker-support-session", "saved-session");
+    resumeSessionMock.mockResolvedValue({
+      session_id: "saved-session", stage: "diagnose", caseVersion: 3, turnId: "turn_003",
+      messages: [{ id: "history-1", role: "assistant", content: "继续排查充电问题" }],
+      taskUpdates: [{ taskId: "charging", name: "充电异常", stage: "collecting", statusText: "正在确认接口" }],
+      focusTaskId: "charging",
+      focusPath: { currentState: "正在确认接口", knownFacts: ["型号 A2345"], currentJudgement: "需要检查连接", nextDirection: "确认接口" },
+      plan: { steps: [{ id: "port", title: "确认当前接口", status: "current" }] },
+      interaction: { type: "choice", question: "当前使用哪个接口？", options: [{ label: "USB-C1" }] },
+    });
+    render(<App />);
+    expect(await screen.findByText("继续排查充电问题")).toBeInTheDocument();
+    expect(screen.getByText("确认当前接口", { selector: ".solution-path span" })).toBeInTheDocument();
+    expect(createSessionMock).not.toHaveBeenCalled();
   });
 });

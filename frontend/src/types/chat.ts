@@ -1,6 +1,7 @@
 export type SessionResponse = { session_id: string };
+export type SessionRestoreResponse = Omit<ChatResponse, "reply"> & { session_id: string; messages: UiMessage[] };
 
-export type TaskStage = "confirmed" | "collecting" | "information_ready" | "judgement_formed" | "solution_provided" | "waiting_confirmation" | "completed";
+export type TaskStage = "confirmed" | "collecting" | "information_ready" | "judgement_formed" | "solution_provided" | "waiting_confirmation" | "completed" | "cancelled";
 export type TaskUpdate = { taskId: string; name: string; stage: TaskStage; statusText: string };
 export type FocusPath = { currentState: string; knownFacts: string[]; currentJudgement: string; nextDirection: string };
 export type SolutionPlan = { steps: Array<{ id: string; title: string; status: "done" | "current" | "pending" }>; revision_note?: string };
@@ -21,6 +22,7 @@ export type ChatResponse = {
   factsUpdate?: Record<string, unknown>;
   taskDecision?: { type: "single" | "propose_split" | "confirmed" | "clarify" };
   taskUpdates?: TaskUpdate[];
+  taskChange?: { changeId: string; action: "add" | "split" | "merge" | "rename" | "cancel"; status: "proposed" | "confirmed"; reason: string };
   focusTaskId?: string;
   focusChanged?: boolean;
   focusChangeReason?: string;

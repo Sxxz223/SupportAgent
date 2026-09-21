@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { createSession, getSessionEventsUrl, sendMessage, sendMultimodalMessage } from "./api/client";
+import { createSession, getSessionEventsUrl, resumeSession, sendMessage, sendMultimodalMessage } from "./api/client";
 import { ChatInput } from "./components/ChatInput";
 import type { ChatResponse, FocusPath, Interaction, SolutionPlan, TaskStage, TaskUpdate, UiMessage } from "./types/chat";
 import "./resolve/workspace.css";
@@ -8,6 +8,7 @@ import "./resolve/workspace.css";
 const stageProgress: Record<TaskStage, number> = {
   confirmed: 10, collecting: 30, information_ready: 50, judgement_formed: 70,
   solution_provided: 90, waiting_confirmation: 99, completed: 100,
+  cancelled: 0,
 };
 const presence = {
   thinking: ["🤔", "正在思考"], investigating: ["🔍", "正在排查"],
@@ -16,6 +17,7 @@ const presence = {
 const initialFocus: FocusPath = {
   currentState: "等待你的问题", knownFacts: [], currentJudgement: "—", nextDirection: "—",
 };
+const SESSION_STORAGE_KEY = "anker-support-session";
 type Pending = { message: string; image: File | null };
 
 export default function App() {
@@ -54,8 +56,28 @@ export default function App() {
     const version = ++requestVersion.current;
     setBusy(true); setError("");
     try {
+      const storedId = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      if (storedId) {
+        try {
+          const restored = await resumeSession(storedId);
+          if (requestVersion.current === version) {
+            setSessionId(storedId);
+            setMessages(restored.messages.length ? restored.messages : [{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" }]);
+            const restoredTasks: Record<string, TaskUpdate> = {};
+            restored.taskUpdates?.forEach((task) => { restoredTasks[task.taskId] = task; });
+            setTasks(restoredTasks); setFocusTaskId(restored.focusTaskId ?? "");
+            setFocusPath(restored.focusPath ?? initialFocus); setPlan(restored.plan ?? { steps: [] });
+            setInteraction(restored.interaction ?? { type: "text" });
+            setAgentState(restored.agentState?.emoji ?? null);
+            caseVersion.current = restored.caseVersion ?? 0; currentTurnId.current = restored.turnId ?? "";
+          }
+          return;
+        } catch { window.localStorage.removeItem(SESSION_STORAGE_KEY); }
+      }
       const id = await createSession();
-      if (requestVersion.current === version) setSessionId(id);
+      if (requestVersion.current === version) {
+        setSessionId(id); window.localStorage.setItem(SESSION_STORAGE_KEY, id);
+      }
     } catch {
       if (requestVersion.current === version) setError("暂时无法连接服务，请重试。");
     } finally {
@@ -139,8 +161,10 @@ export default function App() {
     setPlan({ steps: [] });
     setMessages([{ id: "welcome", role: "assistant", content: "你好，我是 Anker 智能服务助手。有什么可以帮你？" }]);
     setInteraction({ type: "text" }); setAgentState(null); setVisionResult(undefined);
-    setPending(null); setError(""); setSessionId(""); void connect();
+    setPending(null); setError(""); setSessionId("");
     caseVersion.current = 0; currentTurnId.current = "";
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    void connect();
   }
 
   return (
