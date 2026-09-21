@@ -175,4 +175,20 @@ describe("service workspace", () => {
     expect(screen.getByRole("button", { name: "已经完成" })).toBeInTheDocument();
     expect(replyEmojis).toContain("🥺");
   });
+
+  it("accepts the Agent introduction after starting over", async () => {
+    createSessionMock.mockResolvedValueOnce("session-1").mockResolvedValueOnce("session-2");
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(createSessionMock).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole("button", { name: "重新开始" }));
+    await waitFor(() => expect(createSessionMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(EventSourceStub.latest).not.toBeNull());
+    EventSourceStub.latest?.emit("proactive_message", {
+      id: "intro-2", content: "你好，我是 Anker 智能服务助手。",
+      turnId: "turn_000", caseVersion: 0,
+      agentState: { emoji: "👋", label: "很高兴认识你" },
+    });
+    expect(await screen.findByText("你好，我是 Anker 智能服务助手。")).toBeInTheDocument();
+  });
 });

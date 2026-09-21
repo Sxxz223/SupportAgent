@@ -87,6 +87,9 @@ export default function App() {
       }
       const id = await createSession();
       if (requestVersion.current === version) {
+        proactiveIds.current.clear();
+        lastProactiveAt.current = 0;
+        acceptProactive.current = true;
         setSessionId(id); window.localStorage.setItem(SESSION_STORAGE_KEY, id);
       }
     } catch {
@@ -218,6 +221,7 @@ export default function App() {
     setMessages([]);
     setInteraction({ type: "text" }); setAgentState(defaultPresence); setVisionResult(undefined);
     setPending(null); setError(""); setSessionId("");
+    proactiveIds.current.clear(); lastProactiveAt.current = 0;
     caseVersion.current = 0; currentTurnId.current = "";
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
     void connect();
